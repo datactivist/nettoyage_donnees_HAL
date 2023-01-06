@@ -1,0 +1,198 @@
+---
+title: "Nettoyage et enrichissement des données HAL"
+subtitle: "Désambiguïsation des intitulés de conférences"
+output:
+  html_document:
+    theme: paper
+    toc: yes
+    toc_float: yes
+    includes:
+      in_header: header.html
+      after_body: footer.html
+      
+knit: (
+  function(inputFile, encoding) { 
+    
+    rmarkdown::render(inputFile, params = "ask",  
+      encoding    = encoding,
+      output_dir = "../reports", 
+      output_file = paste0(tools::file_path_sans_ext(inputFile), ".html")) })
+---
+
+<style>
+body {
+text-align: justify;
+#background: #f9f9f9;
+}
+</style> 
+
+```{r setup, include=FALSE}
+# Settings summarytools
+library(summarytools)
+st_options(plain.ascii = FALSE,               # This is very handy in all Rmd documents
+           style = "rmarkdown",               # This too
+           footnote = NA,                    # Avoids footnotes which would clutter the results
+           subtitle.emphasis = FALSE
+         # This is a setting to experiment with - according to the theme used, it might improve the headings layout
+)
+# General settings      
+knitr::opts_chunk$set(
+	eval = TRUE,
+	echo = FALSE,
+	fig.align = "center",
+	fig.show = "hold",
+	message = FALSE,
+	warning = FALSE,
+	collapse = TRUE,
+	results = 'asis', # important dfSummary
+	out.width = "100%"
+)
+```
+
+
+----
+
+```{r librairies et données, include = FALSE}
+# Packages nécessaires à l'analyse
+packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "fuzzywuzzyR", "reticulate")
+
+## Installation des packages si besoin et chargement des librairies
+package.check <- lapply(packages,
+  FUN = function(x) {
+      if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)  #remotes::install_github("skgrange/threadr")
+      library(x, character.only = TRUE)}})
+
+# Import données 
+    # HAL (bibTex)
+hal <- read_bibtex("https://api.archives-ouvertes.fr/search/?q=+publicationDateY_i%3A[2018+TO+2022]+AND++(docType_s%3APROCEEDINGS+OR+docType_s%3ACOMM)&fq=collCode_s%3AINRIA2&start=0&rows=100000&wt=bibtex&fl=halId_s,conferenceTitle_s,country_s,city_s,conferenceStartDate_s,conferenceStartDate_s") %>% 
+    filter(year >= 2018 & year <= 2022) # 1714 articles
+    # CORE (CSV)
+core <- purrr::map(
+        .x = (as.data.frame(rep(1:45, each = 1)) %>% rename(page = `rep(1:45, each = 1)`))$page,
+        .y = data.frame(matrix(ncol = 1, nrow = 1)),
+        .f = ~read_html(paste0("http://portal.core.edu.au/conf-ranks/?search=&by=all&source=all&sort=atitle&page=", .x)) %>% html_nodes('body')  %>% html_nodes('table') %>% html_table(dec = ","), 
+        .default = NA)
+core <- bind_rows(core) %>% rename(title = Title) %>% 
+    mutate_all(na_if,"") # 2.212 conférences
+```
+
+
+**Objectif** : Désambiguïsation des intitulés de conférences renseignés dans les données du HAL, en se basant sur le référentiel CORE
+
+**Données à nettoyer** : 
+
+- **Sources des données** : [API Archive Ouverte HAL]()
+- **Dimensions** : `r ncol(hal)` variables et `r nrow(hal)` observations
+
+**Données références** : 
+
+- **Sources des données** : [Portail CORE]()
+- **Dimensions** : `r ncol(core)` variables et `r nrow(core)` observations
+
+
+---
+
+# Résumé des bases{.tabset}
+
+## HAL
+
+```{r}
+dfSummary(hal, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers = FALSE, tmp.img.dir = "/tmp", max.distinct.values = 5, headings=FALSE, method = "render")
+```
+
+<br>
+
+## CORE
+
+```{r}
+dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers = FALSE, tmp.img.dir = "/tmp", max.distinct.values = 5, headings=FALSE, method = "render")
+```
+
+<br>
+
+---
+
+# Jointure des bases
+
+```{r}
+# Nettoyage des données
+    # HAL
+hal_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal))) %>%  # retrait de tous les caractères spéciaux
+    mutate(hal_title = tolower(title), # minuscules
+           hal_title = str_replace(hal_title, "  ", " "), # retrait des doubles espaces
+           howpublished = tolower(howpublished),  # même chose pour les noms de conférences se trouvant dans les colonnes booktitle et howpublished.
+           howpublished = str_replace(howpublished, "  ", " "),
+           booktitle = tolower(booktitle), 
+           booktitle = str_replace(booktitle, "  ", " "))
+    # CORE
+core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # retrait de tous les caractères spéciaux
+    mutate(core_title = tolower(title), # minuscules
+           core_title = str_replace(core_title, "  ", " ")) # retrait des doubles espaces
+```
+
+
+Afin de maximiser le match des noms de conférences, un travail de nettoyage est préalablement fait sur les données. Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 6 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. Dans un premier temps ce sont tous les caractères des titres de conférences qui sont matchés avec ceux du CORE, à partir de quoi on obtient une distance correspondant au nombres de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera dont de 0). Cette manipulation est réalisée sur les 3 colonnes qui donnent une information sur le titre de conférence dans les données du HAL : *title*, *howpublished* et *booktitle*, tous les trois matchées avec l'unique champ des données CORE indiquant le nom de conférence ; *title*.
+
+
+```{r}
+# Match inexacte avec distance
+    # colonne de jointure : TITLE
+enriched_title <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, howpublished, booktitle) %>% filter(!is.na(hal_title)),
+                                    core_manip %>% select(core_title, Acronym, Source, Rank, `Primary FoR`),
+                                    by = c("hal_title" = "core_title"),
+                                    max_dist = 50, 
+                                    distance_col = "distance") %>% 
+    mutate(type_jointure = "title") %>% 
+    arrange(distance) %>% 
+    group_by(hal_id) %>% 
+    slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche #rename(Acronym_title = Acronym, Source_title = Source, Rank_title = Rank, FoR_title = `Primary FoR`)
+    # colonne de jointure : HOWPUBLISHED
+enriched_howpublished <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, howpublished, booktitle) %>% filter(!is.na(howpublished)),
+                                    core_manip %>% select(core_title, Acronym, Source, Rank, `Primary FoR`),
+                                    by = c("howpublished" = "core_title"),
+                                    max_dist = 50, 
+                                    distance_col = "distance") %>% 
+    mutate(type_jointure = "howpublished") %>% 
+    arrange(distance) %>% 
+    group_by(hal_id) %>% 
+    slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche
+    # colonne de jointure : BOOKTITLE
+enriched_booktitle <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, howpublished, booktitle) %>% filter(!is.na(booktitle)),
+                                    core_manip %>% select(core_title, Acronym, Source, Rank, `Primary FoR`),
+                                    by = c("booktitle" = "core_title"),
+                                    max_dist = 50, 
+                                    distance_col = "distance") %>% 
+    mutate(type_jointure = "booktitle") %>% 
+    arrange(distance) %>% 
+    group_by(hal_id) %>% 
+    slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche
+    # on remet les 3 jointures ensemble
+enriched_hal_score <- rbind(enriched_title, enriched_howpublished, enriched_booktitle) %>% 
+    arrange(hal_id, distance)
+```
+
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE}
+DT::datatable(enriched_hal_score, options=list(pageLength=100, searching=T, scrollX='400px'))
+```
+
+
+```{python}
+from polyfuzz import PolyFuzz
+
+from_list = ["apple", "apples", "appl", "recal", "house", "similarity"]
+to_list = ["apple", "apples", "mouse"]
+
+model = PolyFuzz("TF-IDF")
+model.match(from_list, to_list)
+```
+
+Penser : dans le CSV final faire apparaître les titres / acronymes originaux ; pas ceux minimisés sans caractères spéciaux et en minuscules !
+
+
+
+
+
+
