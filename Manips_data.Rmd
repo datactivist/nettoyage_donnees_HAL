@@ -226,6 +226,15 @@ De la même manière que le match par distance de chaînes de caractères, les i
 <br>
 
 ```{r}
+# Extraction de l'acronyme depuis booktitle
+test <- hal %>% mutate(hal_acronym = str_extract(booktitle, "^\\D+"))
+
+
+
+
+
+
+
 # Match sur les tokens communs
     # colonne de jointure : TITLE
 enriched_title_token <- hal_manip %>% 
