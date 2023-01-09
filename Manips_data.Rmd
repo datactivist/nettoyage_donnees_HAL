@@ -15,7 +15,6 @@ knit: (
     
     rmarkdown::render(inputFile, params = "ask",  
       encoding    = encoding,
-      output_dir = "../reports", 
       output_file = paste0(tools::file_path_sans_ext(inputFile), ".html")) })
 ---
 
@@ -274,6 +273,7 @@ Cette deuxième passe de jointure exacte par mot commun à l'acronyme CORE, a pe
 
 
 <br>
+
 
 ```{r}
 table <- enriched_hal_token %>% group_by(hal_id) %>% mutate(n=n())
