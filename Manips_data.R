@@ -53,7 +53,7 @@ enriched_title <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal
                                     by = c("hal_title" = "core_title"),
                                     max_dist = 50, 
                                     distance_col = "distance") %>% 
-    mutate(type_jointure = "title") %>% 
+    mutate(colHAL_jointure = "title") %>% 
     arrange(distance) %>% 
     group_by(hal_id) %>% 
     slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche #rename(Acronym_title = Acronym, Source_title = Source, Rank_title = Rank, FoR_title = `Primary FoR`)
@@ -63,7 +63,7 @@ enriched_booktitle <- stringdist_left_join(hal_manip %>% select(hal_title, year,
                                     by = c("booktitle" = "core_title"),
                                     max_dist = 50, 
                                     distance_col = "distance") %>% 
-    mutate(type_jointure = "booktitle") %>% 
+    mutate(colHAL_jointure = "booktitle") %>% 
     arrange(distance) %>% 
     group_by(hal_id) %>% 
     slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche
@@ -85,7 +85,7 @@ enriched_title_token <- hal_manip %>%
               core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
               by = c("split" = "core_acronym")) %>% 
     filter(!is.na(Acronym)) %>% 
-    mutate(type_jointure = "title")
+    mutate(colHAL_jointure = "title")
     # colonne de jointure : BOOKTITLE
 enriched_booktitle_token <- hal_manip %>% 
     mutate(split = strsplit(as.character(booktitle), " ")) %>% unnest(split) %>% 
@@ -94,11 +94,11 @@ enriched_booktitle_token <- hal_manip %>%
               core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
               by = c("split" = "core_acronym")) %>% 
     filter(!is.na(Acronym)) %>% 
-    mutate(type_jointure = "booktitle")
+    mutate(colHAL_jointure = "booktitle")
     # on remet les 2 jointures ensemble
 enriched_hal_token <- rbind(enriched_title_token, enriched_booktitle_token) %>% distinct() %>% 
     mutate(method = "token") %>% 
-    select("hal_title","year","hal_id","booktitle", "split","core_title","Acronym","Source","Rank","Primary FoR","split","type_jointure","method","core_id")
+    select("hal_title","year","hal_id","booktitle", "split","core_title","Acronym","Source","Rank","Primary FoR","split","colHAL_jointure","method","core_id")
 
 # On remet les noms initiaux (avec caractères spéciaux et majuscules)
 enriched_hal_token <- enriched_hal_token %>% 
@@ -111,7 +111,7 @@ enriched_hal_token <- enriched_hal_token %>%
     left_join(., core %>% select(title, core_id), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","type_jointure","method")
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","colHAL_jointure","method")
 
 
 # séparer les mots des titres
