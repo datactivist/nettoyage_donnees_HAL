@@ -3,7 +3,7 @@ title: "Nettoyage et enrichissement des données HAL"
 subtitle: "Désambiguïsation des intitulés de conférences"
 output:
   html_document:
-    self_contained: false
+    #self_contained: false
     theme: paper
     toc: yes
     toc_float: yes
