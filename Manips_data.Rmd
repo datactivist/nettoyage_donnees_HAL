@@ -7,6 +7,7 @@ output:
     theme: paper
     toc: yes
     toc_float: yes
+    code_folding: hide
     includes:
       in_header: header.html
       after_body: footer.html
@@ -54,7 +55,7 @@ knitr::opts_chunk$set(
 
 ```{r librairies et données, include = FALSE}
 # Packages nécessaires à l'analyse
-packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin")
+packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm")
 
 ## Installation des packages si besoin et chargement des librairies
 package.check <- lapply(packages,
@@ -128,9 +129,9 @@ dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers 
 ```{r}
 # Nettoyage des données
     # HAL
-hal_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal))) %>%  # retrait de tous les caractères spéciaux
-    rename(hal_title = title) %>% 
-    mutate(booktitle = tolower(booktitle), # minuscules
+hal_manip <- hal %>% rename(hal_title = title) %>% 
+    mutate(booktitle = str_replace_all(booktitle, "[[:punct:]]", " "), # retrait de tous les caractères spéciaux
+           booktitle = tolower(booktitle), # minuscules
            booktitle = str_replace(booktitle, "  ", " ")) # retrait des doubles espaces
     # CORE
 core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # retrait de tous les caractères spéciaux
@@ -138,7 +139,7 @@ core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # ret
            core_title = str_replace(core_title, "  ", " "), # retrait des doubles espaces
            core_acronym = tolower(Acronym), # même chose pour l'acronyme qui servira de colonne de jointure dans un second temps
            core_acronym = str_replace(core_acronym, "  ", " "),
-           nb_car_acronym = str_count(Acronym, '\\w+'))
+           nb_car_acronym = str_count(Acronym, '\\w+')) # nombre de mots par acronyme
 ```
 
 
@@ -175,7 +176,7 @@ enriched_hal_score <- stringdist_left_join(hal_manip %>% select(hal_title, year,
 enriched_hal_score <- enriched_hal_score %>% 
     # Noms des communications et conférences dans HAL
     select(-c(hal_title, booktitle)) %>% 
-    left_join(., hal %>% select(title, booktitle, hal_id) %>% mutate(hal_id = str_replace_all(hal_id, "-", "")), by = "hal_id") %>% 
+    left_join(., hal %>% select(title, booktitle, hal_id), by = "hal_id") %>% 
     rename(hal_title = title) %>% 
     # Noms des conférences et acronymes dans CORE
     select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
@@ -199,13 +200,13 @@ Cette première passe de jointure inexacte sur les intitulés de conférences a 
 
 <br>
 
-La deuxième jointure est réalisée en extrayant l'acronyme du nom de conférence dans les données HAL, puis chacun d'eux est matché avec les acronymes des données CORE. Si un mot des intitulés HAL est **exactement le même** que l'acronyme CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est fait en plusieurs temps :
+La deuxième jointure est réalisée en extrayant l'acronyme du nom de conférence dans les données HAL, puis chacun d'eux est matché avec les acronymes des données CORE. Si un mot des intitulés HAL est **exactement le même** que l'acronyme CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ '*booktitle*' des données HAL :
 
-- ;
-- ;
-- .
+- le premier mot est récupéré (excepté s'il s'agit des 3 mots suivants : IEEE, ACM, SIAM);
+- le ou les mots en lettres capitales sont récupérés ;
+- un arbitrage est effectué entre les 2 valeurs récupérées, les commandes sont visibles dans le script après ces lignes.
 
-De la même manière que le match par distance de chaînes de caractères, les intitulés et acronymes originaux sont réintégrés aux données finales. 
+Après jointure des acronymes extraits des noms de conférences HAL avec les données du CORE, les données sont réharmonisées avec les bases initiales d'où l'on récupère les intitulés et acronymes non lemmatisés. 
 
 <br>
 
@@ -221,9 +222,9 @@ paste(unique(trimws(unlist(strsplit(x,split=" ",fixed=F,perl=T)))),collapse =
 
 # Extraction de l'acronyme depuis booktitle
 hal_manip_token <- hal %>% rowwise() %>% 
-    mutate(first_word = word(booktitle, 1), #premier mot du string
+    mutate(booktitle = removeWords(booktitle, c("IEEE ", "ACM ", "SIAM ")),
+           first_word = word(booktitle, 1), #premier mot du string
            capital_word = rem_dup_word(sapply(str_extract_all(booktitle, "\\b[A-Z]+\\b"), paste, collapse= ' ')), #mots en lettres capitales uniques
-           capital_word = str_remove_all(capital_word, "IEEE|ACM"), #retirer les IEEE et ACM
            capital_word = gsub("\\W*\\b\\w\\b\\W*", " ", capital_word)) %>% #retirer lettres toutes seules
     mutate_all(na_if, "") %>% 
     mutate(hal_acronym = case_when(is.na(capital_word) ~ first_word,
@@ -238,8 +239,9 @@ hal_manip_token <- hal %>% rowwise() %>%
     rename(hal_title = title)
 
 # Lémmatisation des acronymes 
-hal_manip_token <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal_manip_token))) %>%  # retrait de tous les caractères spéciaux
-    mutate(hal_acronym = tolower(hal_acronym)) %>%  # minuscules
+hal_manip_token <- hal_manip_token %>%  
+    mutate(hal_acronym = str_replace_all(hal_acronym, "[[:punct:]]", " "), # retrait de tous les caractères spéciaux
+           hal_acronym = tolower(hal_acronym)) %>%  # minuscules
     mutate(hal_acronym = strsplit(as.character(hal_acronym), " ")) %>% unnest(hal_acronym) %>%  #split par ligne les acronymes mutliples
     mutate_all(na_if, "") %>% 
     mutate_all(na_if, " ") %>% 
@@ -247,76 +249,28 @@ hal_manip_token <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal_manip_tok
            hal_acronym != "acm")
 
 # Match sur les tokens communs
-enriched_hal_token_acro <- hal_manip_token %>% 
+enriched_hal_token <- hal_manip_token %>% 
     filter(!is.na(hal_acronym)) %>% 
     left_join(., 
               core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
               by = c("hal_acronym" = "core_acronym")) %>% 
     filter(!is.na(Acronym)) %>% 
-    mutate(method = "token acronym") %>% 
+    mutate(method = "token") %>% 
     select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method","core_id")
 
-# On remet les noms initiaux (non lémmatisés)
-enriched_hal_token_acro <- enriched_hal_token_acro %>% 
+# On remet les colonnes initiales (non lémmatisés)
+enriched_hal_token <- enriched_hal_token %>% 
     # Noms des communications et conférences dans HAL
     select(-c(hal_title, booktitle)) %>% 
-    left_join(., hal %>% select(title, booktitle, hal_id) %>% mutate(hal_id = str_replace_all(hal_id, "-", "")), by = "hal_id") %>% 
+    left_join(., hal %>% select(title, booktitle, hal_id), by = "hal_id") %>% 
     rename(hal_title = title) %>% 
     # Noms des conférences et acronymes dans CORE
     select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
     left_join(., core %>% select(title, core_id), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method")
-
-
-
-        #--------- DEUXIÈME PASSE DE JOINTURE TOKEN
-
-
-# On filtre sur les communications qui n'ont pas été enrichies
-enriched_hal_token_3char <- left_join(hal_manip, enriched_hal_token_acro %>% select(hal_id, Source), by = "hal_id") %>% 
-    filter(is.na(Source)) %>% 
-    select(-Source) %>% 
-    mutate(split = strsplit(as.character(booktitle), " ")) %>% unnest(split) %>% 
-    filter(!is.na(split), nchar(split) >= 3) %>% 
-    left_join(., 
-              core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
-              by = c("split" = "core_acronym")) %>% 
-    filter(!is.na(Acronym)) %>% 
-    mutate(method = "token 3 char")
-
-# On remet les noms initiaux (avec caractères spéciaux et majuscules)
-enriched_hal_token_3char <- enriched_hal_token_3char %>% 
-    # Noms des communications et conférences dans HAL
-    select(-c(hal_title, booktitle)) %>% 
-    left_join(., hal %>% select(title, booktitle, hal_id) %>% mutate(hal_id = str_replace_all(hal_id, "-", "")), by = "hal_id") %>% 
-    rename(hal_title = title) %>% 
-    # Noms des conférences et acronymes dans CORE
-    select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
-    left_join(., core %>% select(title, core_id), by = "core_id") %>% 
-    rename(core_title = title) %>% 
-    # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method")
-
-
-
-        #--------- FINALISATION JOINTURE TOKEN
-
-
-
-# 0n remet les 2 jointures ensemble
-enriched_hal_token <- rbind(enriched_hal_token_acro, enriched_hal_token_3char) %>% distinct() %>% 
-    mutate(distance = NA_real_, .before = "method")
-
-# On remet avec la jointure par distance
-enriched_hal <- rbind(enriched_hal_score, enriched_hal_token) %>% select(-c(method, distance)) %>% distinct()
-
-    
-# Stats
-a <- enriched_hal_token %>% filter(method=="token 3 char")
-a <- data.frame(table(a$Acronym)) %>% arrange(desc(Freq))
-n_distinct(enriched_hal$hal_id) #9642 communications enrichies des données CORE
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method") %>% 
+    mutate(distance = NA_real_, .before = "method") #colonne distance vide pour token avant rbind
 ```
 
 
@@ -325,18 +279,42 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 ```
 
 
-Cette deuxième passe de jointure exacte par mot commun à l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications du HAL, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première passe de match sur les chaînes de caractères.
+Cette deuxième passe de jointure exacte par mot commun à l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications du HAL, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première passe de match sur les chaînes de caractères (score).
 
-(Pour améliorer, prendre mot capital letters pouvant contenir des digits)
 
 <br>
 
 
+# Données finales enrichies
+
 ```{r}
-table <- enriched_hal_token %>% group_by(hal_id) %>% mutate(n=n())
-hist(table$n, main = "Distribution du nombre d'acronymes matchés par communication")
+# On remet avec la jointure par distance
+enriched_hal <- rbind(enriched_hal_score, enriched_hal_token) %>% distinct() %>%
+    group_by(hal_id) %>% mutate(is_token_match = case_when(any(method == "token") ~ 1, TRUE ~ 0)) %>% 
+    ungroup() %>% mutate(is_row_score = case_when(is_token_match == 1 & method == "score" ~ 1, TRUE ~ 0)) %>% 
+    filter(is_row_score == 0) %>% select(-c(is_token_match, is_row_score))
+
+# On joint avec les données initiales pour avoir une base avec TOUTES les communications
+enriched_hal <- left_join(hal %>% select(title, year, hal_id, booktitle) %>% rename(hal_title = title),
+                  enriched_hal %>% select(-c(booktitle, year, hal_title)),
+                  by = "hal_id")
+
+# Stats
+a <- enriched_hal %>% filter(!is.na(method))
+b <- enriched_hal %>% filter(!is.na(method)) %>% filter(method == "score")
+c <- enriched_hal %>% filter(!is.na(method)) %>% filter(method == "token")
+
+# Export des données enrichies
+rio::export(enriched_hal, "enriched_hal.csv")
 ```
 
+
+Finalement, nous regroupons les données de communications enrichies via la méthode de score ou via la méthode de token dans une même base de données. Lorsqu'une proposition de référentiel CORE est disponible avec les 2 méthodes pour une communication HAL, c'est la méthode de token qui est préférée. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données du CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match inexact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE}
+DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
+```
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
 
