@@ -204,13 +204,12 @@ Cette première méthode de jointure non exacte sur les intitulés de conférenc
 
 <br>
 
-La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fréquemment dans l'intitulé de conférence des données HAL, pour le matcher avec un acronymes des données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
+La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fréquemment dans l'intitulé de conférence des données HAL, pour le matcher avec les données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
+- le premier mot est extrait (excepté s'il s'agit d'un des 3 mots suivants : IEEE, ACM, SIAM qui sont des sociétés savantes organisant de nombreuses conférences) ;
+- le ou les mots entièrement en majuscules sont extraits ;
+- un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible après ces lignes.
 
-- le premier mot est récupéré (excepté s'il s'agit des 3 mots suivants : IEEE, ACM, SIAM);
-- le ou les mots en lettres capitales sont récupérés ;
-- un arbitrage est effectué entre les 2 valeurs récupérées, les commandes sont visibles dans le script après ces lignes.
-
-Après jointure des acronymes extraits des noms de conférences HAL avec les données du CORE, les données sont réharmonisées avec les bases initiales d'où l'on récupère les intitulés et acronymes non lemmatisés. 
+Après jointure des acronymes extraits des noms de conférences HAL avec les données du CORE, les données sont réharmonisées avec les bases initiales pour récupérer les intitulés et acronymes non lemmatisés. 
 
 <br>
 
@@ -246,7 +245,7 @@ hal_manip_token <- hal %>% rowwise() %>%
 hal_manip_token <- hal_manip_token %>%  
     mutate(hal_acronym = str_replace_all(hal_acronym, "[[:punct:]]", " "), # retrait de tous les caractères spéciaux
            hal_acronym = tolower(hal_acronym)) %>%  # minuscules
-    mutate(hal_acronym = strsplit(as.character(hal_acronym), " ")) %>% unnest(hal_acronym) %>%  #split par ligne les acronymes mutliples
+    mutate(hal_acronym = strsplit(as.character(hal_acronym), " ")) %>% unnest(hal_acronym) %>%  #split par ligne les acronymes multiples
     mutate_all(na_if, "") %>% 
     mutate_all(na_if, " ") %>% 
     filter(hal_acronym != "ieee",
@@ -283,7 +282,7 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 ```
 
 
-Cette deuxième passe de jointure exacte par mot commun à l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications du HAL, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première passe de match sur les chaînes de caractères (score).
+Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications sur `r nrow(hal)`, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première méthode de distance entre les chaînes de caractères (score).
 
 
 <br>
@@ -313,7 +312,7 @@ rio::export(enriched_hal, "enriched_hal.csv")
 ```
 
 
-Finalement, nous regroupons les données de communications enrichies via la méthode de score ou via la méthode de token dans une même base de données. Lorsqu'une proposition de référentiel CORE est disponible avec les 2 méthodes pour une communication HAL, c'est la méthode de token qui est préférée. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données du CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match inexact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
+Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
 
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
@@ -321,5 +320,3 @@ DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='40
 ```
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
-
-
