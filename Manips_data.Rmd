@@ -129,10 +129,9 @@ dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers 
 # Nettoyage des données
     # HAL
 hal_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal))) %>%  # retrait de tous les caractères spéciaux
-    mutate(hal_title = tolower(title), # minuscules
-           hal_title = str_replace(hal_title, "  ", " "), # retrait des doubles espaces
-           booktitle = tolower(booktitle), 
-           booktitle = str_replace(booktitle, "  ", " "))
+    rename(hal_title = title) %>% 
+    mutate(booktitle = tolower(booktitle), # minuscules
+           booktitle = str_replace(booktitle, "  ", " ")) # retrait des doubles espaces
     # CORE
 core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # retrait de tous les caractères spéciaux
     mutate(core_title = tolower(title), # minuscules
@@ -143,11 +142,11 @@ core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # ret
 ```
 
 
-Afin de maximiser le match des conférences, un travail de nettoyage et de lémmatisation est préalablement exécuté. Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 4 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
+Afin de maximiser le match des conférences, un travail de nettoyage et de lémmatisation est préalablement exécuté. Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 2 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
 
-Dans un premier temps ce sont tous les caractères des titres des communications ou des conférences HAL qui sont matchés avec ceux du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera dont de 0). Cette manipulation est réalisée sur les 2 colonnes qui donnent une information sur le titre de conférence dans les données du HAL : *title* et *booktitle*, tous deux matchés avec l'unique champ des données CORE indiquant le nom de conférence ; *title*.
+Dans un premier temps ce sont tous les caractères des titres des conférences HAL qui sont matchés avec ceux du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera donc de 0). Cette manipulation est réalisée sur la colonne qui donne une information sur le titre de conférence parfois confondu avec le nom des communications dans les données du HAL (*booktitle*), matchée avec le champ des données CORE indiquant le nom de conférence (*title*).
 
-Dans un deuxième temps ce sont tous les mots composant les titres des communications ou des conférences HAL qui sont matchés avec l'acronyme disponible dans CORE. La jointure se fait cette fois sur une base de match **exact**, contrairement aux manipulations réalisées en premier temps sur les intitulés des communications ou des conférences. Ainsi, lorsqu'un mot du titre disponible dans les données HAL correspond à l'acronyme CORE, les informations du référentiel sont récupérées et viennent enrichir les données HAL. Ici encore la manipulation est réalisée sur les variables HAL *title* et *booktitle*, toutes deux matchées avec l'unique champ des données CORE indiquant l'acronyme de la conférence ; *Acronym*.
+Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre les données HAL et le référentiel CORE. Ces derniers sont extraits du nom de conférence disponible dans le champ "*booktitle*" des données HAL. La jointure se fait cette fois sur une base de match **exact**, contrairement aux manipulations réalisées en premier temps sur les intitulés des conférences. Ainsi, lorsque l'acronyme extrait du titre disponible dans les données HAL correspond à l'acronyme CORE, les informations du référentiel sont récupérées et viennent enrichir les données HAL. 
 
 <br>
 
@@ -156,37 +155,21 @@ Dans un deuxième temps ce sont tous les mots composant les titres des communica
 <br>
 
 La première jointure est réalisée en plafonnant la distance d'écart entre les 2 chaînes de caractères, à 50 caractères. 
-Pour chaque communication HAL, plusieurs conférences sont matchées avec un score de distance allant de 0 à 50. Les données sont ensuite regroupées par communication (*hal_id*), puis, seule la conférence ayant le nom le plus proche de celui renseigné dans les données HAL, est gardée. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom HAL et que celle-ci est la distance minimale, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel.
-Ce filtre pour ne garder que les conférences CORE dont le nom s'approche le plus des données HAL, est effectué 3 fois ; sur les données HAL enrichies par CORE via le champ *title*, sur les données HAL enrichies par CORE via le champ *booktitle* et sur les données de ces 2 matchs regroupées. Ainsi, pour une même communication enrichie via *title* et via *booktitle*, seule la conférence la plus proche du nom CORE est gardée. Pour finir, les intitulés originaux des communications et conférences des 2 sources de données sont réintégrés dans les données, et non plus les intitulés lémmatisés.
+Pour chaque communication HAL, plusieurs conférences sont matchées avec un score de distance allant de 0 à 50. Les données sont ensuite regroupées par communication (*hal_id*), puis, seule la conférence ayant le nom le plus proche de celui renseigné dans les données HAL, est gardée. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom CORE et que celle-ci est la distance minimale, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel. De plus, les intitulés originaux des communications et conférences des 2 sources de données sont réintégrés dans les données, et non plus les intitulés lémmatisés.
 
 <br>
 
 ```{r}
-# Match inexacte avec distance
-    # colonne de jointure : TITLE
-enriched_title <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, booktitle) %>% filter(!is.na(hal_title)),
-                                    core_manip %>% select(core_title, Acronym, core_id, Source, Rank, `Primary FoR`),
-                                    by = c("hal_title" = "core_title"),
-                                    max_dist = 50, 
-                                    distance_col = "distance") %>% 
-    mutate(colHAL_jointure = "title") %>% 
-    arrange(distance) %>% 
-    group_by(hal_id) %>% 
-    slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche #rename(Acronym_title = Acronym, Source_title = Source, Rank_title = Rank, FoR_title = `Primary FoR`)
-    # colonne de jointure : BOOKTITLE
-enriched_booktitle <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, booktitle) %>% filter(!is.na(booktitle)),
+# Match inexact avec distance
+enriched_hal_score <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, booktitle) %>% filter(!is.na(booktitle)),
                                     core_manip %>% select(core_title, Acronym, core_id, Source, Rank, `Primary FoR`),
                                     by = c("booktitle" = "core_title"),
                                     max_dist = 50, 
                                     distance_col = "distance") %>% 
-    mutate(colHAL_jointure = "booktitle") %>% 
+    mutate(method = "score") %>% 
     arrange(distance) %>% 
     group_by(hal_id) %>% 
     slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche
-    # on remet les 2 jointures ensemble
-enriched_hal_score <- rbind(enriched_title, enriched_booktitle) %>% 
-    group_by(hal_id) %>% slice_min(order_by = distance, n = 1) %>% # ne garder que le match le plus proche entre title et booktitle
-    mutate(method = "score")
 
 # On remet les noms initiaux (avec caractères spéciaux et majuscules)
 enriched_hal_score <- enriched_hal_score %>% 
@@ -199,10 +182,7 @@ enriched_hal_score <- enriched_hal_score %>%
     left_join(., core %>% select(title, core_id), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","distance","colHAL_jointure","method")
-
-# Stats sur le nombre de matchs exacts
-table <- enriched_hal_score %>% filter(distance == 0) %>% group_by(colHAL_jointure) %>% summarise(n = n())
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","distance","method")
 ```
 
 
@@ -211,7 +191,7 @@ table <- enriched_hal_score %>% filter(distance == 0) %>% group_by(colHAL_jointu
 DT::datatable(enriched_hal_score, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
-Cette première passe de jointure inexacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications du HAL sur `r nrow(hal)` entrées, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 0)`%. Parmi ces jointures, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (en ayant retiré les caractères spéciaux et les majuscules). Ces dernières ont toutes été faites via le champ *booktitle* des données HAL. Pour les `r n_distinct(enriched_hal_score$hal_id) - enriched_hal_score %>% filter(distance == 0) %>% nrow()` communications restantes dont la jointure avec les données CORE est inexacte, le match le plus proche (distance minimisée) provient à `r round(enriched_hal_score %>% distinct(hal_id, colHAL_jointure) %>% group_by(hal_id) %>% mutate(n=n()) %>% filter(n==1, colHAL_jointure == "title") %>% distinct(hal_id) %>% nrow() / (n_distinct(enriched_hal_score$hal_id) - enriched_hal_score %>% filter(distance == 0) %>% nrow()) *100, 0)`% du champ *title*, `r round(enriched_hal_score %>% distinct(hal_id, colHAL_jointure) %>% group_by(hal_id) %>% mutate(n=n()) %>% filter(n==1, colHAL_jointure == "booktitle") %>% distinct(hal_id) %>% nrow() / (n_distinct(enriched_hal_score$hal_id) - enriched_hal_score %>% filter(distance == 0) %>% nrow()) *100, 0)`% du champ *booktitle* et `r round(enriched_hal_score %>% distinct(hal_id, colHAL_jointure) %>% group_by(hal_id) %>% mutate(n=n()) %>% filter(n==2) %>% distinct(hal_id) %>% nrow() / (n_distinct(enriched_hal_score$hal_id) - enriched_hal_score %>% filter(distance == 0) %>% nrow()) *100, 0)`% des deux (la distance est la même pour ces 2 colonnes de jointure).
+Cette première passe de jointure inexacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications du HAL sur `r nrow(hal)` entrées, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 0)`%. Parmi ces jointures, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (en ayant retiré les caractères spéciaux et les majuscules). 
 
 <br>
 
@@ -219,48 +199,65 @@ Cette première passe de jointure inexacte sur les intitulés de conférences a 
 
 <br>
 
-La deuxième jointure est réalisée en séparant tous les mots des intitulés des communications et des conférences dans les données HAL, puis chacun d'eux est matché avec les acronymes des données CORE. Si un mot des intitulés HAL est **exactement le même** que l'acronyme CORE, alors l'entrée est enrichie du référentiel CORE. Ici encore, la manipulation est réalisée sur le champ *title*, puis sur le champ *booktitle* présents dans les données du HAL. 
+La deuxième jointure est réalisée en extrayant l'acronyme du nom de conférence dans les données HAL, puis chacun d'eux est matché avec les acronymes des données CORE. Si un mot des intitulés HAL est **exactement le même** que l'acronyme CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est fait en plusieurs temps :
+
+- ;
+- ;
+- .
 
 De la même manière que le match par distance de chaînes de caractères, les intitulés et acronymes originaux sont réintégrés aux données finales. 
 
 <br>
 
 ```{r}
+        #--------- PREMIÈRE PASSE DE JOINTURE TOKEN
+
+
+# Fonction pour retirer les mots doublons
+rem_dup_word <- function(x){
+paste(unique(trimws(unlist(strsplit(x,split=" ",fixed=F,perl=T)))),collapse = 
+" ")
+}
+
 # Extraction de l'acronyme depuis booktitle
-test <- hal %>% mutate(hal_acronym = str_extract(booktitle, "^\\D+"))
+hal_manip_token <- hal %>% rowwise() %>% 
+    mutate(first_word = word(booktitle, 1), #premier mot du string
+           capital_word = rem_dup_word(sapply(str_extract_all(booktitle, "\\b[A-Z]+\\b"), paste, collapse= ' ')), #mots en lettres capitales uniques
+           capital_word = str_remove_all(capital_word, "IEEE|ACM"), #retirer les IEEE et ACM
+           capital_word = gsub("\\W*\\b\\w\\b\\W*", " ", capital_word)) %>% #retirer lettres toutes seules
+    mutate_all(na_if, "") %>% 
+    mutate(hal_acronym = case_when(is.na(capital_word) ~ first_word,
+                                    is.na(first_word) ~ capital_word,
+                                    first_word == "In" ~ capital_word,
+                                    first_word == capital_word ~ first_word,
+                                    str_detect(first_word, "[0-9]") == TRUE ~ capital_word, #qd first_word contient un chiffre
+                                    nchar(capital_word) == 1 ~ first_word, #qd 1 seul caractère dans capital_word
+                                    grepl('[^[:alnum:]]', first_word) ~ capital_word, #qd first_word contient des caractères sépciaux (hors lettres et digits)
+                                    TRUE ~ capital_word)) %>%  
+    select(title, booktitle, year, hal_id, hal_acronym) %>% 
+    rename(hal_title = title)
 
-
-
-
-
-
+# Lémmatisation des acronymes 
+hal_manip_token <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(hal_manip_token))) %>%  # retrait de tous les caractères spéciaux
+    mutate(hal_acronym = tolower(hal_acronym)) %>%  # minuscules
+    mutate(hal_acronym = strsplit(as.character(hal_acronym), " ")) %>% unnest(hal_acronym) %>%  #split par ligne les acronymes mutliples
+    mutate_all(na_if, "") %>% 
+    mutate_all(na_if, " ") %>% 
+    filter(hal_acronym != "ieee",
+           hal_acronym != "acm")
 
 # Match sur les tokens communs
-    # colonne de jointure : TITLE
-enriched_title_token <- hal_manip %>% 
-    mutate(split = strsplit(as.character(hal_title), " ")) %>% unnest(split) %>% 
-    filter(!is.na(split)) %>% 
+enriched_hal_token_acro <- hal_manip_token %>% 
+    filter(!is.na(hal_acronym)) %>% 
     left_join(., 
               core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
-              by = c("split" = "core_acronym")) %>% 
+              by = c("hal_acronym" = "core_acronym")) %>% 
     filter(!is.na(Acronym)) %>% 
-    mutate(colHAL_jointure = "title")
-    # colonne de jointure : BOOKTITLE
-enriched_booktitle_token <- hal_manip %>% 
-    mutate(split = strsplit(as.character(booktitle), " ")) %>% unnest(split) %>% 
-    filter(!is.na(split)) %>% 
-    left_join(., 
-              core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
-              by = c("split" = "core_acronym")) %>% 
-    filter(!is.na(Acronym)) %>% 
-    mutate(colHAL_jointure = "booktitle")
-    # on remet les 2 jointures ensemble
-enriched_hal_token <- rbind(enriched_title_token, enriched_booktitle_token) %>% distinct() %>% 
-    mutate(method = "token") %>% 
-    select("hal_title","year","hal_id","booktitle", "split","core_title","Acronym","Source","Rank","Primary FoR","split","colHAL_jointure","method","core_id")
+    mutate(method = "token acronym") %>% 
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method","core_id")
 
-# On remet les noms initiaux (avec caractères spéciaux et majuscules)
-enriched_hal_token <- enriched_hal_token %>% 
+# On remet les noms initiaux (non lémmatisés)
+enriched_hal_token_acro <- enriched_hal_token_acro %>% 
     # Noms des communications et conférences dans HAL
     select(-c(hal_title, booktitle)) %>% 
     left_join(., hal %>% select(title, booktitle, hal_id) %>% mutate(hal_id = str_replace_all(hal_id, "-", "")), by = "hal_id") %>% 
@@ -270,7 +267,56 @@ enriched_hal_token <- enriched_hal_token %>%
     left_join(., core %>% select(title, core_id), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","colHAL_jointure","method")
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method")
+
+
+
+        #--------- DEUXIÈME PASSE DE JOINTURE TOKEN
+
+
+# On filtre sur les communications qui n'ont pas été enrichies
+enriched_hal_token_3char <- left_join(hal_manip, enriched_hal_token_acro %>% select(hal_id, Source), by = "hal_id") %>% 
+    filter(is.na(Source)) %>% 
+    select(-Source) %>% 
+    mutate(split = strsplit(as.character(booktitle), " ")) %>% unnest(split) %>% 
+    filter(!is.na(split), nchar(split) >= 3) %>% 
+    left_join(., 
+              core_manip %>% select(core_title, core_acronym, Acronym, core_id, Source, Rank, `Primary FoR`), 
+              by = c("split" = "core_acronym")) %>% 
+    filter(!is.na(Acronym)) %>% 
+    mutate(method = "token 3 char")
+
+# On remet les noms initiaux (avec caractères spéciaux et majuscules)
+enriched_hal_token_3char <- enriched_hal_token_3char %>% 
+    # Noms des communications et conférences dans HAL
+    select(-c(hal_title, booktitle)) %>% 
+    left_join(., hal %>% select(title, booktitle, hal_id) %>% mutate(hal_id = str_replace_all(hal_id, "-", "")), by = "hal_id") %>% 
+    rename(hal_title = title) %>% 
+    # Noms des conférences et acronymes dans CORE
+    select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
+    left_join(., core %>% select(title, core_id), by = "core_id") %>% 
+    rename(core_title = title) %>% 
+    # Mise en forme finale
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method")
+
+
+
+        #--------- FINALISATION JOINTURE TOKEN
+
+
+
+# 0n remet les 2 jointures ensemble
+enriched_hal_token <- rbind(enriched_hal_token_acro, enriched_hal_token_3char) %>% distinct() %>% 
+    mutate(distance = NA_real_, .before = "method")
+
+# On remet avec la jointure par distance
+enriched_hal <- rbind(enriched_hal_score, enriched_hal_token) %>% select(-c(method, distance)) %>% distinct()
+
+    
+# Stats
+a <- enriched_hal_token %>% filter(method=="token 3 char")
+a <- data.frame(table(a$Acronym)) %>% arrange(desc(Freq))
+n_distinct(enriched_hal$hal_id) #9642 communications enrichies des données CORE
 ```
 
 
@@ -281,6 +327,7 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 
 Cette deuxième passe de jointure exacte par mot commun à l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications du HAL, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première passe de match sur les chaînes de caractères.
 
+(Pour améliorer, prendre mot capital letters pouvant contenir des digits)
 
 <br>
 
@@ -290,5 +337,7 @@ table <- enriched_hal_token %>% group_by(hal_id) %>% mutate(n=n())
 hist(table$n, main = "Distribution du nombre d'acronymes matchés par communication")
 ```
 
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
 
 
