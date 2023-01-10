@@ -67,7 +67,7 @@ package.check <- lapply(packages,
 
 # Import données 
 
-    # HAL (bibTex)
+    # HAL (format bibTex)
 hal1 <- read_bibtex("https://api.archives-ouvertes.fr/search/?q=+publicationDateY_i%3A[2018+TO+2020]+AND++(docType_s%3ACOMM)&fq=collCode_s%3AINRIA2&rows=100000&wt=bibtex")
 hal2 <- read_bibtex("https://api.archives-ouvertes.fr/search/?q=+publicationDateY_i%3A[2021+TO+2022]+AND++(docType_s%3ACOMM)&fq=collCode_s%3AINRIA2&rows=100000&wt=bibtex")
 hal <- rbind(hal1 %>% select(bibtex_key, article_type, title, author, url, editor, series, volume, number, pages, year, month, keywords, pdf, hal_id, hal_version, publisher, doi, organization, booktitle, address ), 
@@ -87,17 +87,17 @@ core <- bind_rows(core) %>% rename(title = Title) %>%
 ```
 
 
-**Objectif** : Désambiguïsation des intitulés de conférences renseignés dans les données du HAL, en se basant sur le référentiel CORE
+**Objectif** : Désambiguïsation des intitulés de conférences renseignés dans les données HAL, en se basant sur le référentiel CORE
 
 **Données à nettoyer** : 
 
-- **Sources des données** : [API Archive Ouverte HAL]()
-- **Dimensions** : `r ncol(hal)` variables et `r nrow(hal)` observations
+- **Sources des données** : [API HAL](https://api.archives-ouvertes.fr/docs) requêtée sur les références de la collection HAL Inria de type COMM publiées entre 2018 et 2022 
+- **Dimensions** : `r ncol(hal)` variables et `r nrow(hal)` individus
 
-**Données références** : 
+**Données de référence** : 
 
-- **Sources des données** : [Portail CORE]()
-- **Dimensions** : `r ncol(core)` variables et `r nrow(core)` observations
+- **Sources des données** : [CORE Conference Portal](http://portal.core.edu.au/conf-ranks/)
+- **Dimensions** : `r ncol(core)` variables et `r nrow(core)` individus
 
 
 ---
@@ -143,9 +143,9 @@ core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # ret
 ```
 
 
-Afin de maximiser le match des conférences, un travail de nettoyage et de lémmatisation est préalablement exécuté. Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 2 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
+Afin de maximiser le matching des intitulés de conférences, un travail de nettoyage et de lémmatisation est préalablement effectué Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 2 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
 
-Dans un premier temps ce sont tous les caractères des titres des conférences HAL qui sont matchés avec ceux du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera donc de 0). Cette manipulation est réalisée sur la colonne qui donne une information sur le titre de conférence parfois confondu avec le nom des communications dans les données du HAL (*booktitle*), matchée avec le champ des données CORE indiquant le nom de conférence (*title*).
+Dans un premier temps, les chaînes de caractères formant l'intitulé des conférences HAL sont matchés avec celles du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera donc de 0). Cette manipulation est réalisée sur la variable HAL *booktitle*, matchée avec la variable CORE *title* indiquant l'intitulé des conférences.
 
 Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre les données HAL et le référentiel CORE. Ces derniers sont extraits du nom de conférence disponible dans le champ "*booktitle*" des données HAL. La jointure se fait cette fois sur une base de match **exact**, contrairement aux manipulations réalisées en premier temps sur les intitulés des conférences. Ainsi, lorsque l'acronyme extrait du titre disponible dans les données HAL correspond à l'acronyme CORE, les informations du référentiel sont récupérées et viennent enrichir les données HAL. 
 
@@ -155,8 +155,12 @@ Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre 
 
 <br>
 
-La première jointure est réalisée en plafonnant la distance d'écart entre les 2 chaînes de caractères, à 50 caractères. 
-Pour chaque communication HAL, plusieurs conférences sont matchées avec un score de distance allant de 0 à 50. Les données sont ensuite regroupées par communication (*hal_id*), puis, seule la conférence ayant le nom le plus proche de celui renseigné dans les données HAL, est gardée. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom CORE et que celle-ci est la distance minimale, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel. De plus, les intitulés originaux des communications et conférences des 2 sources de données sont réintégrés dans les données, et non plus les intitulés lémmatisés.
+La première jointure est réalisée en plafonnant la distance entre les 2 chaînes de caractères à 50 caractères. 
+Pour chaque communication HAL, plusieurs conférences sont matchées avec un score de distance allant de 0 à 50. Les données sont ensuite regroupées par communication (*hal_id*), puis, la conférence ayant le nom le plus proche de celui renseigné dans les données HAL est gardée. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom CORE et que celle-ci est la distance minimale, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel.
+
+Les intitulés originaux des communications et conférences des 2 sources de données sont réinjectés dans les données, à la place des intitulés lémmatisés.
+
+Dans la table ci-dessous, les colonnes *hal_title* à *booktitle* proviennent de HAL ; les colonnes *core_title* à *Primary FoR* proviennent de CORE ; les colonnes *distance* et *method* sont générées par l'algorithme de comparaison.
 
 <br>
 
@@ -192,7 +196,7 @@ enriched_hal_score <- enriched_hal_score %>%
 DT::datatable(enriched_hal_score, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
-Cette première passe de jointure inexacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications du HAL sur `r nrow(hal)` entrées, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 0)`%. Parmi ces jointures, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (en ayant retiré les caractères spéciaux et les majuscules). 
+Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 0)`%. Parmi ces jointures, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (aux caractères spéciaux et majuscules près). 
 
 <br>
 
@@ -200,7 +204,7 @@ Cette première passe de jointure inexacte sur les intitulés de conférences a 
 
 <br>
 
-La deuxième jointure est réalisée en extrayant l'acronyme du nom de conférence dans les données HAL, puis chacun d'eux est matché avec les acronymes des données CORE. Si un mot des intitulés HAL est **exactement le même** que l'acronyme CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ '*booktitle*' des données HAL :
+La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fréquemment dans l'intitulé de conférence des données HAL, pour le matcher avec un acronymes des données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
 
 - le premier mot est récupéré (excepté s'il s'agit des 3 mots suivants : IEEE, ACM, SIAM);
 - le ou les mots en lettres capitales sont récupérés ;
