@@ -7,7 +7,7 @@ output:
     theme: paper
     toc: yes
     toc_float: yes
-    code_folding: hide
+    #code_folding: hide
     includes:
       in_header: header.html
       after_body: footer.html
@@ -53,7 +53,7 @@ knitr::opts_chunk$set(
 
 ----
 
-```{r librairies et données, include = FALSE, cache = TRUE}
+```{r librairies et données, cache=FALSE, include=FALSE}
 # Packages nécessaires à l'analyse
 packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm")
 
@@ -208,13 +208,27 @@ La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fr�
 
 * le premier mot est extrait (excepté s'il s'agit d'un des 3 mots suivants : IEEE, ACM, SIAM qui sont des sociétés savantes organisant de nombreuses conférences) ;
 * le ou les mots entièrement en majuscules sont extraits ;
-* un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible après ces lignes.
+* un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible ci-dessous.
+
+```{r eval=F, echo=T}
+# règle pour arbitrer entre premier mot ou mot en capitales
+hal_acronym = case_when(is.na(capital_word) ~ first_word,
+                        is.na(first_word) ~ capital_word,
+                        first_word == "In" ~ capital_word, #cas particulier où "In" ne correspond pas à l'acronyme de la conf
+                        first_word == capital_word ~ first_word,
+                        str_detect(first_word, "[0-9]") == TRUE ~ capital_word, #qd first_word contient un chiffre
+                        nchar(capital_word) == 1 ~ first_word, #qd 1 seul caractère dans capital_word
+                        grepl('[^[:alnum:]]', first_word) ~ capital_word, #qd first_word contient des caractères spéciaux (hors lettres et digits)
+                        TRUE ~ capital_word)  #dans les autres cas on garde le mot en lettre capitales car plus fiable
+```
+
+
 
 Après jointure des acronymes extraits des noms de conférences HAL avec les données du CORE, les données sont réharmonisées avec les bases initiales pour récupérer les intitulés et acronymes non lemmatisés. 
 
 <br>
 
-```{r echo=TRUE}
+```{r}
         #--------- PREMIÈRE PASSE DE JOINTURE TOKEN
 
 
@@ -226,19 +240,20 @@ paste(unique(trimws(unlist(strsplit(x,split=" ",fixed=F,perl=T)))),collapse =
 
 # Extraction de l'acronyme depuis booktitle
 hal_manip_token <- hal %>% rowwise() %>% 
-    mutate(booktitle = removeWords(booktitle, c("IEEE ", "ACM ", "SIAM ")),
+    mutate(booktitle = removeWords(booktitle, c("IEEE ", "ACM ", "SIAM ")), #on retire ces 3 acronymes
            first_word = word(booktitle, 1), #premier mot du string
            capital_word = rem_dup_word(sapply(str_extract_all(booktitle, "\\b[A-Z]+\\b"), paste, collapse= ' ')), #mots en lettres capitales uniques
-           capital_word = gsub("\\W*\\b\\w\\b\\W*", " ", capital_word)) %>% #retirer lettres toutes seules
-    mutate_all(na_if, "") %>% 
+           capital_word = gsub("\\W*\\b\\w\\b\\W*", " ", capital_word)) %>% #on retire les lettres toutes seules (ex: "E" extrait de "E-health")
+    mutate_all(na_if, "") %>% #on remplace les valeurs vides par de vrais NAs
+    # règle pour arbitrer entre premier mot ou mot en capitales
     mutate(hal_acronym = case_when(is.na(capital_word) ~ first_word,
                                     is.na(first_word) ~ capital_word,
-                                    first_word == "In" ~ capital_word,
+                                    first_word == "In" ~ capital_word, #cas particulier où "In" ne correspond pas à l'acronyme de la conf
                                     first_word == capital_word ~ first_word,
                                     str_detect(first_word, "[0-9]") == TRUE ~ capital_word, #qd first_word contient un chiffre
                                     nchar(capital_word) == 1 ~ first_word, #qd 1 seul caractère dans capital_word
-                                    grepl('[^[:alnum:]]', first_word) ~ capital_word, #qd first_word contient des caractères sépciaux (hors lettres et digits)
-                                    TRUE ~ capital_word)) %>%  
+                                    grepl('[^[:alnum:]]', first_word) ~ capital_word, #qd first_word contient des caractères spéciaux (hors lettres et digits)
+                                    TRUE ~ capital_word)) %>%  #dans les autres cas on garde le mot en lettre capitales car plus fiable
     select(title, booktitle, year, hal_id, hal_acronym) %>% 
     rename(hal_title = title)
 
@@ -294,14 +309,18 @@ Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a perm
 ```{r}
 # On remet avec la jointure par distance
 enriched_hal <- rbind(enriched_hal_score, enriched_hal_token) %>% distinct() %>%
-    group_by(hal_id) %>% mutate(is_token_match = case_when(any(method == "token") ~ 1, TRUE ~ 0)) %>% 
-    ungroup() %>% mutate(is_row_score = case_when(is_token_match == 1 & method == "score" ~ 1, TRUE ~ 0)) %>% 
-    filter(is_row_score == 0) %>% select(-c(is_token_match, is_row_score))
+    group_by(hal_id) %>% mutate(is_token_match = case_when(any(method == "token") ~ 1, TRUE ~ 0), #la communication a-t-elle au moins un match par token ?
+                                is_score_0 = case_when(any(distance == 0) ~ 1, TRUE ~ 0)) %>% #la communication a-t-elle au moins un score à 0 ?
+    ungroup() %>% mutate(is_row_delete = case_when(is_score_0 == 1 & method == "score" & distance == 0 ~ 0,
+                                                   is_score_0 == 1 & method == "token" ~ 1,
+                                                   is_score_0 == 0 & is_token_match == 1 & method == "score" ~ 1, 
+                                                   TRUE ~ 0)) %>% #la jointure vient-elle du token ?
+    filter(is_row_delete == 0) %>% select(-c(is_token_match, is_score_0, is_row_delete)) # on filtre pour ne pas garder les jointures par score lorsque token est disponible
 
 # On joint avec les données initiales pour avoir une base avec TOUTES les communications
 enriched_hal <- left_join(hal %>% select(title, year, hal_id, booktitle) %>% rename(hal_title = title),
-                  enriched_hal %>% select(-c(booktitle, year, hal_title)),
-                  by = "hal_id")
+                          enriched_hal %>% select(-c(booktitle, year, hal_title)),
+                          by = "hal_id")
 
 # Stats
 a <- enriched_hal %>% filter(!is.na(method))
@@ -313,7 +332,7 @@ rio::export(enriched_hal, "enriched_hal.csv")
 ```
 
 
-Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
+Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. L'unique exception à cette règle intervient lorsque la méthode de jointure par score est parfaite ; la distance entre les deux chaînes de caractères est de 0. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
 
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
