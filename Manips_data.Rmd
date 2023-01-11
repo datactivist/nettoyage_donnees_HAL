@@ -53,7 +53,7 @@ knitr::opts_chunk$set(
 
 ----
 
-```{r librairies et données, include = FALSE}
+```{r librairies et données, include = FALSE, cache = TRUE}
 # Packages nécessaires à l'analyse
 packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm")
 
@@ -205,15 +205,15 @@ Cette première méthode de jointure non exacte sur les intitulés de conférenc
 <br>
 
 La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fréquemment dans l'intitulé de conférence des données HAL, pour le matcher avec les données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
-- le premier mot est extrait (excepté s'il s'agit d'un des 3 mots suivants : IEEE, ACM, SIAM qui sont des sociétés savantes organisant de nombreuses conférences) ;
-- le ou les mots entièrement en majuscules sont extraits ;
-- un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible après ces lignes.
+* le premier mot est extrait (excepté s'il s'agit d'un des 3 mots suivants : IEEE, ACM, SIAM qui sont des sociétés savantes organisant de nombreuses conférences) ;
+* le ou les mots entièrement en majuscules sont extraits ;
+* un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible après ces lignes.
 
 Après jointure des acronymes extraits des noms de conférences HAL avec les données du CORE, les données sont réharmonisées avec les bases initiales pour récupérer les intitulés et acronymes non lemmatisés. 
 
 <br>
 
-```{r}
+```{r echo=TRUE}
         #--------- PREMIÈRE PASSE DE JOINTURE TOKEN
 
 
