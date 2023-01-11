@@ -73,8 +73,12 @@ hal2 <- read_bibtex("https://api.archives-ouvertes.fr/search/?q=+publicationDate
 hal <- rbind(hal1 %>% select(bibtex_key, article_type, title, author, url, editor, series, volume, number, pages, year, month, keywords, pdf, hal_id, hal_version, publisher, doi, organization, booktitle, address ), 
               hal2 %>% select(bibtex_key, article_type, title, author, url, editor, series, volume, number, pages, year, month, keywords, pdf, hal_id, hal_version, publisher, doi, organization, booktitle, address )) %>% 
     distinct() %>% 
-    filter(year >= 2018 & year <= 2022) # 10.052 communications
-
+    filter(year >= 2018 & year <= 2022)# plus de 10.000 communications
+# Sauvegarde du nombre de communications sans hal_id
+a <- hal %>% filter(is.na(hal_id)) %>% nrow()
+# Création artisanale d'un id pour les différentes manipulations de ce script
+hal <- hal %>% mutate(hal_id = case_when(is.na(hal_id) ~ paste0("artisanal-", row_number()), TRUE ~ hal_id))
+    
     # CORE (CSV)
 core <- purrr::map(
         .x = (as.data.frame(rep(1:45, each = 1)) %>% rename(page = `rep(1:45, each = 1)`))$page,
@@ -106,11 +110,16 @@ core <- bind_rows(core) %>% rename(title = Title) %>%
 
 ## HAL
 
+Un identifiant unique (*hal_id*) est créé temporairement pour les `r a` communications n'ayant pas d'identifiant à l'import des données des archives ouvertes.
+
 ```{r}
 dfSummary(hal, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers = FALSE, tmp.img.dir = "/tmp", max.distinct.values = 5, headings=FALSE, method = "render")
 ```
 
 <br>
+
+-----------------------------
+
 
 ## CORE
 
@@ -120,7 +129,7 @@ dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers 
 
 <br>
 
----
+-----------------------------
 
 # Jointure des bases
 
@@ -155,8 +164,7 @@ Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre 
 
 <br>
 
-La première jointure est réalisée en plafonnant la distance entre les 2 chaînes de caractères à 50 caractères. 
-Pour chaque communication HAL, plusieurs conférences sont matchées avec un score de distance allant de 0 à 50. Les données sont ensuite regroupées par communication (*hal_id*), puis, la conférence ayant le nom le plus proche de celui renseigné dans les données HAL est gardée. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom CORE et que celle-ci est la distance minimale, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel.
+Pour chaque communication HAL, une jointure approximative est effectuée sur les noms de conférences, en utilisant la méthode '*Optimal string aligment*' qui ne récupère que le match le plus proche du champ à enrichir. Dans le cas où 2 noms de conférences ont la même distance par rapport au nom CORE, les 2 conférences sont gardées dans les données enrichies, et devront alors faire l'objet d'un traitement manuel.
 
 Les intitulés originaux des communications et conférences des 2 sources de données sont réinjectés dans les données, à la place des intitulés lémmatisés.
 
@@ -167,10 +175,10 @@ Dans la table ci-dessous, les colonnes *hal_title* à *booktitle* proviennent de
 ```{r}
 # Match inexact avec distance
 enriched_hal_score <- stringdist_left_join(hal_manip %>% select(hal_title, year, hal_id, booktitle) %>% filter(!is.na(booktitle)),
-                                    core_manip %>% select(core_title, Acronym, core_id, Source, Rank, `Primary FoR`),
-                                    by = c("booktitle" = "core_title"),
-                                    max_dist = 50, 
-                                    distance_col = "distance") %>% 
+                                           core_manip %>% select(core_title, Acronym, core_id, Source, Rank, `Primary FoR`),
+                                           by = c("booktitle" = "core_title"),
+                                           max_dist = 350,
+                                           distance_col = "distance") %>% 
     mutate(method = "score") %>% 
     arrange(distance) %>% 
     group_by(hal_id) %>% 
@@ -188,6 +196,11 @@ enriched_hal_score <- enriched_hal_score %>%
     rename(core_title = title) %>% 
     # Mise en forme finale
     select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","distance","method")
+
+# Stats
+diff1 <- setdiff(hal$hal_id, enriched_hal_score$hal_id)
+na_booktitle <- hal %>% filter(is.na(booktitle))
+diff2 <- setdiff(diff1, na_booktitle$hal_id)
 ```
 
 
@@ -196,7 +209,8 @@ enriched_hal_score <- enriched_hal_score %>%
 DT::datatable(enriched_hal_score, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
-Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 0)`%. Parmi ces jointures, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (aux caractères spéciaux et majuscules près). 
+Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 2)`%. Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications restantes n'ont pas été enrichies puisqu'aucune valeur n'est renseignée dans le champ '*booktitle*'.
+Parmi les communications enrichies, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (aux caractères spéciaux et majuscules près). 
 
 <br>
 
@@ -298,7 +312,7 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 ```
 
 
-Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications sur `r nrow(hal)`, dont `r length(setdiff(enriched_hal_token$hal_id, enriched_hal_score$hal_id))` qui n'avaient pas été enrichies par la première méthode de distance entre les chaînes de caractères (score).
+Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_token$hal_id) / nrow(hal) *100, 0)`%.
 
 
 <br>
@@ -309,30 +323,43 @@ Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a perm
 ```{r}
 # On remet avec la jointure par distance
 enriched_hal <- rbind(enriched_hal_score, enriched_hal_token) %>% distinct() %>%
-    group_by(hal_id) %>% mutate(is_token_match = case_when(any(method == "token") ~ 1, TRUE ~ 0), #la communication a-t-elle au moins un match par token ?
+    mutate(is_token = case_when(method == "token" ~ 1, TRUE ~ 0)) %>% 
+    group_by(hal_id) %>% mutate(nb_token = sum(is_token), # nb de résultats via token par comm
+                                is_token_match = case_when(any(method == "token") ~ 1, TRUE ~ 0), #la communication a-t-elle au moins un match par token ?
                                 is_score_0 = case_when(any(distance == 0) ~ 1, TRUE ~ 0)) %>% #la communication a-t-elle au moins un score à 0 ?
-    ungroup() %>% mutate(is_row_delete = case_when(is_score_0 == 1 & method == "score" & distance == 0 ~ 0,
+    ungroup() %>% mutate(is_row_delete = case_when(nb_token == 2 & method == "token" ~ 1, # quand 2 tokens on retire
+                                                   nb_token == 2 & method == "score" ~ 0, 
+                                                   is_score_0 == 1 & method == "score" & distance == 0 ~ 0,
                                                    is_score_0 == 1 & method == "token" ~ 1,
                                                    is_score_0 == 0 & is_token_match == 1 & method == "score" ~ 1, 
                                                    TRUE ~ 0)) %>% #la jointure vient-elle du token ?
-    filter(is_row_delete == 0) %>% select(-c(is_token_match, is_score_0, is_row_delete)) # on filtre pour ne pas garder les jointures par score lorsque token est disponible
+    filter(is_row_delete == 0) %>% # on filtre pour ne pas garder les jointures par score lorsque token est disponible
+    select(-c(is_token, nb_token, is_token_match, is_score_0, is_row_delete)) 
+
 
 # On joint avec les données initiales pour avoir une base avec TOUTES les communications
 enriched_hal <- left_join(hal %>% select(title, year, hal_id, booktitle) %>% rename(hal_title = title),
                           enriched_hal %>% select(-c(booktitle, year, hal_title)),
-                          by = "hal_id")
+                          by = "hal_id") %>% 
+    distinct() %>% 
+    # on retire les hal_id créés à la main
+    mutate(hal_id = case_when(grepl("artisanal-", hal_id) == TRUE ~ "NA_real_",
+                              TRUE ~ hal_id))
+enriched_hal[enriched_hal == "NA_real_"] <- NA
+
 
 # Stats
 a <- enriched_hal %>% filter(!is.na(method))
 b <- enriched_hal %>% filter(!is.na(method)) %>% filter(method == "score")
 c <- enriched_hal %>% filter(!is.na(method)) %>% filter(method == "token")
 
+
 # Export des données enrichies
 rio::export(enriched_hal, "enriched_hal.csv")
 ```
 
 
-Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. L'unique exception à cette règle intervient lorsque la méthode de jointure par score est parfaite ; la distance entre les deux chaînes de caractères est de 0. Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
+Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Deux exceptions à cette règle interviennent ; lorsque la méthode de jointure par score est parfaite (la distance entre les deux chaînes de caractères est de 0) et lorsque deux conférences sont trouvées via la méthode du token (cas où l'acronyme est en doublon dans les données CORE). Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
 
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
