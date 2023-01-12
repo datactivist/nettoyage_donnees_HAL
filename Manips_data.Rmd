@@ -55,7 +55,7 @@ knitr::opts_chunk$set(
 
 ```{r librairies et données, cache=FALSE, include=FALSE}
 # Packages nécessaires à l'analyse
-packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm")
+packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm", "plotly")
 
 ## Installation des packages si besoin et chargement des librairies
 package.check <- lapply(packages,
@@ -88,10 +88,15 @@ core <- purrr::map(
 core <- bind_rows(core) %>% rename(title = Title) %>% 
     mutate_all(na_if,"") %>% 
     mutate(core_id = row_number()) # 2.212 conférences
+
+# Test import données historiques
+read_html(paste0("http://portal.core.edu.au/conf-ranks/1320")) %>% html_nodes('body') %>% html_text()
 ```
 
 
 **Objectif** : Désambiguïsation des intitulés de conférences renseignés dans les données HAL, en se basant sur le référentiel CORE
+
+**Dernière mise à jour** : `r format(Sys.time(), '%d %B %Y')`
 
 **Données à nettoyer** : 
 
@@ -212,7 +217,11 @@ DT::datatable(enriched_hal_score, options=list(pageLength=25, searching=T, scrol
 Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 2)`%. Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications restantes n'ont pas été enrichies puisqu'aucune valeur n'est renseignée dans le champ '*booktitle*'.
 Parmi les communications enrichies, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (aux caractères spéciaux et majuscules près). 
 
+
+----
+
 <br>
+
 
 ## Match par mot commun aux deux chaines de caractères (token) 
 
@@ -314,11 +323,14 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 
 Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_token$hal_id) / nrow(hal) *100, 0)`%.
 
+----
 
 <br>
 
 
 # Données finales enrichies
+
+<br>
 
 ```{r}
 # On remet avec la jointure par distance
@@ -359,8 +371,30 @@ rio::export(enriched_hal, "enriched_hal.csv")
 ```
 
 
-Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Deux exceptions à cette règle interviennent ; lorsque la méthode de jointure par score est parfaite (la distance entre les deux chaînes de caractères est de 0) et lorsque deux conférences sont trouvées via la méthode du token (cas où l'acronyme est en doublon dans les données CORE). Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 0)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence).
+Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Deux exceptions à cette règle interviennent ; 
 
+- lorsque la méthode de jointure par score est parfaite (la distance entre les deux chaînes de caractères est de 0), celle-ci est alors préférée ;
+- lorsque deux conférences sont trouvées via la méthode du token ; il s'agit d'un cas où l'acronyme est en doublon dans les données CORE, la méthode par score est alors préférée. 
+
+Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 2)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence). Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications n'ayant pas de *'booktitle'* et par ce fait ne pouvant être enrichies du référentiel CORE, sont réintégrées à la base de données. 
+
+```{r}
+# Distribution des distances
+graph <- enriched_hal %>% 
+    ggplot(aes(x = distance)) +
+      geom_histogram(bins = 30L, fill = "#112446", col = "white", size = 1) +
+      labs(
+        x = "Distance entre les 2 chaînes de caractères",
+        y = "Nombre de communications",
+        title = "Distribution des distances des noms de conférences contenus dans les \ndonnées HAL et CORE"
+      ) +
+      theme_classic()
+ggplotly(graph)
+```
+
+Le graphique ci-dessus représente, pour les communications enrichies par la méthode du *score*, la distribution des distances entre les deux chaînes de caractères des noms de conférence. Celles-ci s'étendent de `r min(enriched_hal$distance, na.rm=T)` (match parfait entre les 2 noms) à `r max(enriched_hal$distance, na.rm=T)`, avec une moyenne de `r round(mean(enriched_hal$distance, na.rm=T), 0)` caractères d'écart. 
+
+**Ci-dessous, les données des archives ouvertes enrichies du référentiel CORE :**
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
 DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
