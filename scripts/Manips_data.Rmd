@@ -17,6 +17,7 @@ knit: (
     
     rmarkdown::render(inputFile, params = "ask",  
       encoding    = encoding,
+      output_dir = "../reports",
       output_file = paste0(tools::file_path_sans_ext(inputFile), ".html")) })
 ---
 
@@ -55,7 +56,7 @@ knitr::opts_chunk$set(
 
 ```{r librairies et données, cache=FALSE, include=FALSE}
 # Packages nécessaires à l'analyse
-packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm", "plotly")
+packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm", "plotly", "janitor", "htm2txt")
 
 ## Installation des packages si besoin et chargement des librairies
 package.check <- lapply(packages,
@@ -88,9 +89,6 @@ core <- purrr::map(
 core <- bind_rows(core) %>% rename(title = Title) %>% 
     mutate_all(na_if,"") %>% 
     mutate(core_id = row_number()) # 2.212 conférences
-
-# Test import données historiques
-read_html(paste0("http://portal.core.edu.au/conf-ranks/1320")) %>% html_nodes('body') %>% html_text()
 ```
 
 
@@ -398,6 +396,15 @@ Le graphique ci-dessus représente, pour les communications enrichies par la mé
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
 DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
+```
+
+<br>
+
+# Données millésimées
+
+```{r}
+# Import des données millésimées
+core_histo <- read_csv("core_millesime.csv")
 ```
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
