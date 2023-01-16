@@ -56,7 +56,7 @@ knitr::opts_chunk$set(
 
 ```{r librairies et données, cache=FALSE, include=FALSE}
 # Packages nécessaires à l'analyse
-packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm", "plotly", "janitor", "htm2txt")
+packages = c("tidyverse", "summarytools", "threadr", "rvest", "fuzzyjoin", "tm", "plotly")
 
 ## Installation des packages si besoin et chargement des librairies
 package.check <- lapply(packages,
@@ -185,7 +185,13 @@ enriched_hal_score <- stringdist_left_join(hal_manip %>% select(hal_title, year,
     mutate(method = "score") %>% 
     arrange(distance) %>% 
     group_by(hal_id) %>% 
-    slice_min(order_by = distance, n = 1) # ne garder que le match le plus proche
+    slice_min(order_by = distance, n = 1) %>%  # ne garder que le match le plus proche
+    ungroup() %>% rowwise() %>% 
+    # calcul du pourcentage de similarité
+    mutate(nb_common_char = sum(!is.na(pmatch(unlist(strsplit(booktitle,"")), unlist(strsplit(core_title,"")), duplicates.ok = F))),
+           part_similarite = round(nb_common_char / nchar(booktitle) * 100, 2)) %>% 
+    select(-nb_common_char)
+
 
 # On remet les noms initiaux (avec caractères spéciaux et majuscules)
 enriched_hal_score <- enriched_hal_score %>% 
@@ -194,11 +200,11 @@ enriched_hal_score <- enriched_hal_score %>%
     left_join(., hal %>% select(title, booktitle, hal_id), by = "hal_id") %>% 
     rename(hal_title = title) %>% 
     # Noms des conférences et acronymes dans CORE
-    select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
-    left_join(., core %>% select(title, core_id), by = "core_id") %>% 
+    select(-c(core_title, Acronym)) %>% mutate(core_id = as.numeric(core_id)) %>% 
+    left_join(., core %>% select(title, core_id, Acronym), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
-    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","distance","method")
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","distance","part_similarite","method")
 
 # Stats
 diff1 <- setdiff(hal$hal_id, enriched_hal_score$hal_id)
@@ -305,12 +311,13 @@ enriched_hal_token <- enriched_hal_token %>%
     left_join(., hal %>% select(title, booktitle, hal_id), by = "hal_id") %>% 
     rename(hal_title = title) %>% 
     # Noms des conférences et acronymes dans CORE
-    select(-c(core_title)) %>% mutate(core_id = as.numeric(core_id)) %>% 
-    left_join(., core %>% select(title, core_id), by = "core_id") %>% 
+    select(-c(core_title, Acronym)) %>% mutate(core_id = as.numeric(core_id)) %>% 
+    left_join(., core %>% select(title, core_id, Acronym), by = "core_id") %>% 
     rename(core_title = title) %>% 
     # Mise en forme finale
     select("hal_title","year","hal_id","booktitle","core_title","Acronym","Source","Rank","Primary FoR","method") %>% 
-    mutate(distance = NA_real_, .before = "method") #colonne distance vide pour token avant rbind
+    mutate(distance = NA_real_, .before = "method") %>%  #colonne distance vide pour token avant rbind 
+    mutate(part_similarite = NA_real_, .before = "method") #colonne distance vide pour token avant rbind 
 ```
 
 
@@ -364,7 +371,7 @@ c <- enriched_hal %>% filter(!is.na(method)) %>% filter(method == "token")
 
 
 # Export des données enrichies
-rio::export(enriched_hal, "enriched_hal.csv")
+rio::export(enriched_hal, "../data/enriched_hal.csv")
 ```
 
 
@@ -402,10 +409,11 @@ DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='40
 
 ----
 
-# 2.Données CORE millésimées
+# 2. Données CORE millésimées
 
 <br>
 
+Cette deuxième partie vise à mettre à jour le rang du référentiel CORE, par rapport à l'année de publication de la communication HAL. Pour cela, les données millésimées du référentiel sont parsées puis importées depuis le portail internet, avec les manipulations visibles dans le script [Parse_CORE_millesime.R](https://github.com/datactivist/nettoyage_donnees_HAL/blob/main/scripts/Parse_CORE_millesime.R).
 
 ```{r}
 # Import des données millésimées
@@ -418,29 +426,50 @@ enriched_hal <- enriched_hal %>% mutate(title_acro = paste(core_title, Acronym))
 core_histo <- core_histo %>% mutate(title_acro = paste(Title, Acronym))
 
 # Jointure des deux bases
-test <- left_join(enriched_hal, core_histo %>% select(-Title), by = "title_acro", na_matches = "never")
+enriched_hal_histo <- left_join(enriched_hal, core_histo %>% select(-Title), by = "title_acro", na_matches = "never")
 
-# Filtre pour ne garder que les rangs des années de publication de l'archive
-test2 <- test %>% 
-    group_by(hal_id) %>% mutate(n = n()) %>% ungroup() %>% 
-    group_by(core_id) %>% 
+# Filtre pour garder les bons rangs // à l'année de publication de l'archive
+enriched_hal_histo <- enriched_hal_histo %>% 
+    group_by(hal_id, core_id) %>% mutate(n = n()) %>% #nombre de rangs disponibles
     mutate(to_delete = case_when(n == 1 ~ 0, #quand une seule source dispo on la garde
                                  year == "2018" & source == "CORE2018" ~ 0,
                                  year == "2019" & source == "CORE2018" ~ 0,
                                  year == "2020" & source == "CORE2020" ~ 0,
                                  year == "2021" & source == "CORE2021" ~ 0,
                                  year == "2022" & source == "CORE2021" ~ 0,
-                                 TRUE ~ 1)) %>% ungroup() %>% 
-    group_by(hal_id) %>% 
-    mutate(is_at_least_one_0 = case_when(any(to_delete == 0) ~ 1,
+                                 TRUE ~ 1),
+           is_at_least_one_0 = case_when(any(to_delete == 0) ~ 1,
                                          TRUE ~ 0)) %>% ungroup() %>% 
-    mutate(is_row_delete = case_when(is_at_least_one_0 == 1 & to_delete == 1 ~ 1,
-                                     TRUE ~ 0)) %>% 
-    #"select(hal_title, hal_id, year, Acronym.x, source:is_row_delete) %>% 
-    filter(is_row_delete == 0)
+    mutate(is_row_delete = case_when(is_at_least_one_0 == 1 & to_delete == 1 ~ 1,  TRUE ~ 0)) %>% 
+    filter(is_row_delete == 0) %>% 
+        # gestion des cas où l'année de publi n'est pas dispo dans l'historique CORE
+    mutate(year_millesime = str_extract(source, "(1|2)\\d{3}")) %>% #extraction de l'année depuis la source
+    #filter(grepl("ERA", source) == FALSE) %>% #on retire les 'ERA'
+    group_by(hal_id, core_id) %>% arrange(desc(year_millesime)) %>% slice(1) #on garde la source la plus récente pour les autres conf
+
+# Mise en forme des données finales
+save_enriched_hal_histo <- enriched_hal_histo #sauvegarde pour statistiques
+enriched_hal_histo <- enriched_hal_histo %>% 
+    select("hal_title","year","hal_id","booktitle","core_title","Acronym.y","source","rank","Primary FoR","core_id","distance","part_similarite","method") %>% 
+    rename(Acronym = Acronym.y, Source = source, Rank = rank) %>% 
+    group_by(hal_id, booktitle) %>% mutate(nb_conf_matchees = n()) %>% ungroup()
+
+# Stats
+a <- save_enriched_hal_histo %>% group_by(core_id) %>% mutate(is_source_diff = case_when(Source != source ~ 1, TRUE ~ 0)) %>% filter(is_source_diff == 1)
+b <- a %>% group_by(core_id) %>% mutate(is_rank_diff = case_when(Rank != rank ~ 1, TRUE ~ 0)) %>% filter(is_rank_diff == 1)
+
+# Export des données
+rio::export(enriched_hal_histo, "../data/enriched_hal_millesimees.csv")
 ```
 
+Le millésime des `r n_distinct(core_histo$core_id)` conférences est récupéré depuis le portail CORE. Celles-ci sont alors jointes aux données enrichies de la première partie : les communications HAL enrichies des noms de conférences (et autres variables). Par la suite, une règle de décision est appliquée pour garder la bonne année du rang de la publication : 
 
+- lorsque l'année de publication de la communication se trouve dans les données historiques du référentiel, le rang de celle-ci est gardé (*ex: pour une publication de 2018 nous gardons le rang dont la source est 'CORE2018'*) ;
+- lorsque l'année de publication de la communication est 2019 ou 2022 nous prenons le rang de l'année précédente car aucune mise à jour du référentiel n'a été fait ces deux années là (*ex: pour une publication de 2022 nous gardons le rang dont la source est 'CORE2021'*) ;
+- lorsqu'un seul rang est disponible dans les données CORE millésimées, nous le gardons ; 
+- pour les cas qui n'entrent pas dans les possibilités listées ci-dessus, le rang le plus récemment mis à jour est gardé.
+
+Ainsi, la source est mise à jour pour toutes les conférences. Pour `r n_distinct(a$core_id)` d'entre elles la source des données CORE non millésimées ne correspondait pas à l'année de la communication HAL, et donc a été mise à jour. Parmi ces dernières, le rang change pour `r n_distinct(b$core_id)` d'entre elles. 
 
 <br>
 
@@ -450,9 +479,27 @@ test2 <- test %>%
 
 <br>
 
+Les données finales de cette analyse sont visibles ci-dessous, et disponibles dans le [dossier *data* du repository](https://github.com/datactivist/nettoyage_donnees_HAL/blob/main/data/enriched_hal_millesimees.csv). Elles se composent des champs suivants : 
+
+- ***hal_title*** : le titre de la communication, issu des données HAL ;
+- ***year*** : l'année de publication de la communication, issue des données HAL ;
+- ***hal_id*** : l'identifiant unique de la communication, issu des données HAL ;
+- ***booktitle*** : le titre de la conférence, issu des données HAL ;
+- ***core_title*** : le titre de la conférence, issu des données CORE ;
+- ***Acronym*** : l'acronyme de la conférence, issu des données CORE ;
+- ***Source*** : l'année du rang de la conférence correspondant à l'année de publication de la communication HAL ou l'année la plus récente disponible, issue des données CORE millésimées;
+- ***Rank*** : le rang de la conférence correspondant à l'année de publication de la communication HAL ou l'année la plus récente disponible, issu des données CORE millésimées;
+- ***Primary FoR*** : l'identifiant du domaine de recherche (*Field of Research*) de la conférence, issu des données CORE **non millésimées** ;
+- ***core_id*** : l'identifiant unique de la conférence, provenant du numéro de page [des données CORE millésimées](http://portal.core.edu.au/conf-ranks/1/) ;
+- ***distance*** : nombre de caractères non communs aux titres de conférence dans les données HAL (*booktitle*) et dans les données CORE (*core_title*), calculé en première partie ;
+- ***part_similarite*** : pourcentage de caractères du titre de conférence HAL se trouvant dans le titre de conférence CORE, calculé en première partie ;
+- ***method*** : méthode ayant permis d'enrichir les données HAL par le référentiel, prend la valeur "*score*" ou "*token*", a été créée en première partie ;
+- ***nb_conf_matchees*** : nombre de conférences du référentiel CORE ayant matché avec les données HAL, nécessitant alors un tri manuel au regard des intitulés de conférences ainsi que des acronymes.
+
+<br>
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
-DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
+DT::datatable(enriched_hal_histo, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
