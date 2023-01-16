@@ -1,10 +1,14 @@
 ## Parse des données CORE millésimées
 
+# Librairies
+library(tidyverse)
+library(htm2txt)
+
 # Import
-core <- purrr::map(
-        .x = (as.data.frame(rep(1:2302, each = 1)) %>% rename(page = `rep(1:2302, each = 1)`))$page,
+core_millesime <- purrr::map(
+        .x = (as.data.frame(rep(1:2303, each = 1)) %>% rename(page = `rep(1:2303, each = 1)`))$page,
         .y = data.frame(matrix(ncol = 1, nrow = 1)),
-        possibly(.f = ~ as.data.frame(gettxt(paste0('http://portal.core.edu.au/conf-ranks/', .x))) %>% #import pag par page jà 2302
+        possibly(.f = ~ as.data.frame(gettxt(paste0('http://portal.core.edu.au/conf-ranks/', .x))) %>% #import pag par page jà 2303
     rename(text = 1) %>% 
     mutate(text = strsplit(as.character(text), "\n")) %>% unnest(text) %>% #split les éléments séparés par des "\n"
     filter(row_number() == 10 | #nom de conférence
@@ -23,10 +27,10 @@ core <- purrr::map(
         .default = NA)
 
 # Gestion des Na et mise au format tabulaire
-core_histo <- core[core != "NA"] # replace NA by NULL
+core_histo <- core_millesime[core_millesime != "NA"] # replace NA by NULL
 core_histo <- rrapply::rrapply(core_histo, condition = Negate(is.null), how = "prune") #remove NULL
 core_histo <- core_histo %>% bind_rows()
 
 # Export
-rio::export(core_histo, "core_millesime.csv")
+rio::export(core_histo, "data/core_millesime.csv")
 

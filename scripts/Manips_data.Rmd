@@ -17,8 +17,8 @@ knit: (
     
     rmarkdown::render(inputFile, params = "ask",  
       encoding    = encoding,
-      output_dir = "../reports",
-      output_file = paste0(tools::file_path_sans_ext(inputFile), ".html")) })
+      output_dir = "../notebook",
+      output_file = "Synthese.html") })
 ---
 
 <style>
@@ -134,7 +134,7 @@ dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers 
 
 -----------------------------
 
-# Jointure des bases
+# 1. Enrichissement des données HAL
 
 <br>
 
@@ -221,7 +221,7 @@ Parmi les communications enrichies, `r enriched_hal_score %>% filter(distance ==
 <br>
 
 
-## Match par mot commun aux deux chaines de caractères (token) 
+## Match par mot commun aux deux chaînes de caractères (token) 
 
 <br>
 
@@ -321,12 +321,11 @@ DT::datatable(enriched_hal_token, options=list(pageLength=25, searching=T, scrol
 
 Cette deuxième méthode de jointure exacte par match de l'acronyme CORE, a permis d'enrichir `r n_distinct(enriched_hal_token$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_token$hal_id) / nrow(hal) *100, 0)`%.
 
-----
 
 <br>
 
 
-# Données finales enrichies
+## Données HAL enrichies
 
 <br>
 
@@ -398,13 +397,62 @@ Le graphique ci-dessus représente, pour les communications enrichies par la mé
 DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
+
 <br>
 
-# Données millésimées
+----
+
+# 2.Données CORE millésimées
+
+<br>
+
 
 ```{r}
 # Import des données millésimées
-core_histo <- read_csv("core_millesime.csv")
+core_histo <- read_csv("../data/core_millesime.csv")
+
+# Préparation de jointure ; on colle l'acronyme au titre pour gérer les 6 conférences qui ont un titre non unique
+    # enriched HAL
+enriched_hal <- enriched_hal %>% mutate(title_acro = paste(core_title, Acronym))
+    # CORE millésimé
+core_histo <- core_histo %>% mutate(title_acro = paste(Title, Acronym))
+
+# Jointure des deux bases
+test <- left_join(enriched_hal, core_histo %>% select(-Title), by = "title_acro", na_matches = "never")
+
+# Filtre pour ne garder que les rangs des années de publication de l'archive
+test2 <- test %>% 
+    group_by(hal_id) %>% mutate(n = n()) %>% ungroup() %>% 
+    group_by(core_id) %>% 
+    mutate(to_delete = case_when(n == 1 ~ 0, #quand une seule source dispo on la garde
+                                 year == "2018" & source == "CORE2018" ~ 0,
+                                 year == "2019" & source == "CORE2018" ~ 0,
+                                 year == "2020" & source == "CORE2020" ~ 0,
+                                 year == "2021" & source == "CORE2021" ~ 0,
+                                 year == "2022" & source == "CORE2021" ~ 0,
+                                 TRUE ~ 1)) %>% ungroup() %>% 
+    group_by(hal_id) %>% 
+    mutate(is_at_least_one_0 = case_when(any(to_delete == 0) ~ 1,
+                                         TRUE ~ 0)) %>% ungroup() %>% 
+    mutate(is_row_delete = case_when(is_at_least_one_0 == 1 & to_delete == 1 ~ 1,
+                                     TRUE ~ 0)) %>% 
+    #"select(hal_title, hal_id, year, Acronym.x, source:is_row_delete) %>% 
+    filter(is_row_delete == 0)
+```
+
+
+
+<br>
+
+----
+
+# Données finales
+
+<br>
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE}
+DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
