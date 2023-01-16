@@ -113,7 +113,7 @@ core <- bind_rows(core) %>% rename(title = Title) %>%
 
 ## HAL
 
-Un identifiant unique (*hal_id*) est créé temporairement pour les `r a` communications n'ayant pas d'identifiant à l'import des données des archives ouvertes.
+Un identifiant unique (*hal_id*) est créé temporairement pour les `r a` communications n'ayant pas d'identifiant à l'import des données de l'archive ouverte.
 
 ```{r}
 dfSummary(hal, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers = FALSE, tmp.img.dir = "/tmp", max.distinct.values = 5, headings=FALSE, method = "render")
@@ -134,7 +134,7 @@ dfSummary(core, style = "grid", graph.magnif = 1, valid.col = FALSE, varnumbers 
 
 -----------------------------
 
-# 1. Enrichissement des données HAL
+# 1. Désambiguïsation des intitulés de conférence
 
 <br>
 
@@ -155,11 +155,11 @@ core_manip <- as.data.frame(gsub("[[:punct:]]", "", as.matrix(core))) %>%  # ret
 ```
 
 
-Afin de maximiser le matching des intitulés de conférences, un travail de nettoyage et de lémmatisation est préalablement effectué Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 2 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
+Afin de maximiser le matching des intitulés de conférences, un travail de nettoyage et de lémmatisation est préalablement effectué. Les intitulés sont ainsi mis en minuscules, sans accents et sans caractères spéciaux. Un match est opéré 2 fois pour faire correspondre les intitulés des données du HAL avec ceux du référentiel CORE. 
 
-Dans un premier temps, les chaînes de caractères formant l'intitulé des conférences HAL sont matchés avec celles du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera donc de 0). Cette manipulation est réalisée sur la variable HAL *booktitle*, matchée avec la variable CORE *title* indiquant l'intitulé des conférences.
+Dans un premier temps, les chaînes de caractères formant l'intitulé des conférences HAL sont matchées avec celles du CORE, à partir de quoi on obtient une distance correspondant au nombre de caractères **qui ne sont pas communs** au 2 intitulés (si l'intitulé est exactement le même, la distance sera donc de 0). Cette manipulation est réalisée sur la variable HAL *booktitle*, matchée avec la variable CORE *title* indiquant l'intitulé des conférences.
 
-Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre les données HAL et le référentiel CORE. Ces derniers sont extraits du nom de conférence disponible dans le champ "*booktitle*" des données HAL. La jointure se fait cette fois sur une base de match **exact**, contrairement aux manipulations réalisées en premier temps sur les intitulés des conférences. Ainsi, lorsque l'acronyme extrait du titre disponible dans les données HAL correspond à l'acronyme CORE, les informations du référentiel sont récupérées et viennent enrichir les données HAL. 
+Dans un deuxième temps ce sont seulement les acronymes qui sont matchés entre les données HAL et le référentiel CORE. Ces derniers sont extraits du nom de conférence disponible dans le champ "*booktitle*" des données HAL. La jointure se fait cette fois sur une base de match **exact**, contrairement aux manipulations réalisées en premier sur les intitulés des conférences. Ainsi, lorsque l'acronyme extrait du titre disponible dans les données HAL correspond à l'acronyme CORE, les informations du référentiel sont récupérées et viennent enrichir les données HAL. 
 
 <br>
 
@@ -171,7 +171,7 @@ Pour chaque communication HAL, une jointure approximative est effectuée sur les
 
 Les intitulés originaux des communications et conférences des 2 sources de données sont réinjectés dans les données, à la place des intitulés lémmatisés.
 
-Dans la table ci-dessous, les colonnes *hal_title* à *booktitle* proviennent de HAL ; les colonnes *core_title* à *Primary FoR* proviennent de CORE ; les colonnes *distance* et *method* sont générées par l'algorithme de comparaison.
+Dans la table ci-dessous, les colonnes *hal_title* à *booktitle* proviennent de HAL ; les colonnes *core_title* à *Primary FoR* proviennent de CORE ; les colonnes *distance*, *part_similarite* et *method* sont générées par l'algorithme de comparaison.
 
 <br>
 
@@ -218,7 +218,7 @@ diff2 <- setdiff(diff1, na_booktitle$hal_id)
 DT::datatable(enriched_hal_score, options=list(pageLength=25, searching=T, scrollX='400px'))
 ```
 
-Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 2)`%. Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications restantes n'ont pas été enrichies puisqu'aucune valeur n'est renseignée dans le champ '*booktitle*'.
+Cette première méthode de jointure non exacte sur les intitulés de conférences a permis d'enrichir `r n_distinct(enriched_hal_score$hal_id)` communications sur `r nrow(hal)`, soit `r round(n_distinct(enriched_hal_score$hal_id) / nrow(hal) *100, 2)`%. Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications restantes n'ont pas pu être enrichies faute d'une valeur renseignée dans le champ '*booktitle*'.
 Parmi les communications enrichies, `r enriched_hal_score %>% filter(distance == 0) %>% nrow()` sont exactes, c'est-à-dire que l'intitulé dans les données HAL correspond **exactement** à celui de la conférence dans les données CORE (aux caractères spéciaux et majuscules près). 
 
 
@@ -231,11 +231,11 @@ Parmi les communications enrichies, `r enriched_hal_score %>% filter(distance ==
 
 <br>
 
-La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve fréquemment dans l'intitulé de conférence des données HAL, pour le matcher avec les données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
+La deuxième jointure est réalisée en identifiant l'acronyme qui se trouve typiquement dans l'intitulé de conférence des données HAL, pour le matcher avec les données CORE. Lorsque l'acronyme identifié **se retrouve à l'identique** dans le champ *Acronym* de CORE, alors l'entrée est enrichie du référentiel CORE. L'extraction de l'acronyme est faite de deux manières à partir du champ *booktitle* des données HAL :
 
 * le premier mot est extrait (excepté s'il s'agit d'un des 3 mots suivants : IEEE, ACM, SIAM qui sont des sociétés savantes organisant de nombreuses conférences) ;
 * le ou les mots entièrement en majuscules sont extraits ;
-* un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script visible ci-dessous.
+* un arbitrage est effectué entre les 2 valeurs récupérées, selon un ensemble de règles implémentées dans le script ci-dessous.
 
 ```{r eval=F, echo=T}
 # règle pour arbitrer entre premier mot ou mot en capitales
@@ -378,9 +378,9 @@ rio::export(enriched_hal, "../data/enriched_hal.csv")
 Finalement, nous consolidons les données HAL enrichies via la méthode de score et via la méthode de token dans une même base de données. Lorsqu'un match avec le référentiel CORE a été trouvé avec les 2 méthodes, c'est la méthode du token qui est préférée car selon nos observations, elle est généralement plus fiable. Deux exceptions à cette règle interviennent ; 
 
 - lorsque la méthode de jointure par score est parfaite (la distance entre les deux chaînes de caractères est de 0), celle-ci est alors préférée ;
-- lorsque deux conférences sont trouvées via la méthode du token ; il s'agit d'un cas où l'acronyme est en doublon dans les données CORE, la méthode par score est alors préférée. 
+- lorsque deux conférences sont trouvées via la méthode du token : il s'agit d'un cas où le même acronyme est attribué à plusieurs conférences dans les données CORE, la méthode par score est alors préférée. 
 
-Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 2)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence). Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications n'ayant pas de *'booktitle'* et par ce fait ne pouvant être enrichies du référentiel CORE, sont réintégrées à la base de données. 
+Ainsi, nous avons au total `r n_distinct(a$hal_id)` communications harmonisées et enrichies par les données CORE, soit `r round(n_distinct(a$hal_id)/nrow(hal)*100, 2)`% des données HAL récupérées par les années de 2018 à 2022. Parmi ces `r n_distinct(a$hal_id)` communications enrichies, `r n_distinct(b$hal_id)` sont finalement issues de la méthode du score (match non exact entre les intitulés de conférence) et `r n_distinct(c$hal_id)` de la méthode du token (match exact entre les acronymes de conférence). Les `r hal %>% filter(is.na(booktitle)) %>% nrow()` communications n'ayant pas de *'booktitle'*, donc ne pouvant pas être enrichies, sont réintégrées à la base de données. 
 
 ```{r}
 # Distribution des distances
@@ -398,7 +398,7 @@ ggplotly(graph)
 
 Le graphique ci-dessus représente, pour les communications enrichies par la méthode du *score*, la distribution des distances entre les deux chaînes de caractères des noms de conférence. Celles-ci s'étendent de `r min(enriched_hal$distance, na.rm=T)` (match parfait entre les 2 noms) à `r max(enriched_hal$distance, na.rm=T)`, avec une moyenne de `r round(mean(enriched_hal$distance, na.rm=T), 0)` caractères d'écart. 
 
-**Ci-dessous, les données des archives ouvertes enrichies du référentiel CORE :**
+**Ci-dessous, les données HAL enrichies du référentiel CORE :**
 
 ```{r echo=FALSE, warning=FALSE, error=FALSE}
 DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='400px'))
@@ -413,7 +413,7 @@ DT::datatable(enriched_hal, options=list(pageLength=25, searching=T, scrollX='40
 
 <br>
 
-Cette deuxième partie vise à mettre à jour le rang du référentiel CORE, par rapport à l'année de publication de la communication HAL. Pour cela, les données millésimées du référentiel sont parsées puis importées depuis le portail internet, avec les manipulations visibles dans le script [Parse_CORE_millesime.R](https://github.com/datactivist/nettoyage_donnees_HAL/blob/main/scripts/Parse_CORE_millesime.R).
+Cette deuxième partie vise à ajouter le rang de la conférence (de A\* à Unranked, cf. [ce guide](https://drive.google.com/file/d/1q21YeVIEDYyjKJ9WBPXTgbRH_reCnV12/edit)) provenant du référentiel CORE, selon l'année de la communication. Pour cela, les données millésimées du référentiel sont parsées puis importées selon le script [Parse_CORE_millesime.R](https://github.com/datactivist/nettoyage_donnees_HAL/blob/main/scripts/Parse_CORE_millesime.R).
 
 ```{r}
 # Import des données millésimées
@@ -462,14 +462,14 @@ b <- a %>% group_by(core_id) %>% mutate(is_rank_diff = case_when(Rank != rank ~ 
 rio::export(enriched_hal_histo, "../data/enriched_hal_millesimees.csv")
 ```
 
-Le millésime des `r n_distinct(core_histo$core_id)` conférences est récupéré depuis le portail CORE. Celles-ci sont alors jointes aux données enrichies de la première partie : les communications HAL enrichies des noms de conférences (et autres variables). Par la suite, une règle de décision est appliquée pour garder la bonne année du rang de la publication : 
+Les données millésimées des `r n_distinct(core_histo$core_id)` conférences du référentiel CORE est récupéré depuis le portail CORE. Celles-ci sont alors jointes aux données enrichies de la première partie, en appliquant une règle de décision pour déterminer le rang de la conférence au moment de la communication : 
 
-- lorsque l'année de publication de la communication se trouve dans les données historiques du référentiel, le rang de celle-ci est gardé (*ex: pour une publication de 2018 nous gardons le rang dont la source est 'CORE2018'*) ;
-- lorsque l'année de publication de la communication est 2019 ou 2022 nous prenons le rang de l'année précédente car aucune mise à jour du référentiel n'a été fait ces deux années là (*ex: pour une publication de 2022 nous gardons le rang dont la source est 'CORE2021'*) ;
+- lorsque l'année de la communication correspond à un millésime du référentiel, le rang de ce millésime est appliqué (*ex: pour une publication de 2018 nous appliquons le rang dont la source est 'CORE2018'*) ;
+- lorsque l'année de la communication est 2019 ou 2022, années sans mise à jour du référentiel, nous prenons le rang de l'année précédente (*ex: pour une publication de 2022 nous appliquons le rang dont la source est 'CORE2021'*) ;
 - lorsqu'un seul rang est disponible dans les données CORE millésimées, nous le gardons ; 
-- pour les cas qui n'entrent pas dans les possibilités listées ci-dessus, le rang le plus récemment mis à jour est gardé.
+- dans tous les autres cas, le rang le plus récent est appliqué.
 
-Ainsi, la source est mise à jour pour toutes les conférences. Pour `r n_distinct(a$core_id)` d'entre elles la source des données CORE non millésimées ne correspondait pas à l'année de la communication HAL, et donc a été mise à jour. Parmi ces dernières, le rang change pour `r n_distinct(b$core_id)` d'entre elles. 
+Ainsi, le champ *'Source'* est mis à jour en fonction de cette règle. Pour `r n_distinct(a$core_id)` communications, la source des données CORE non millésimées ne correspondait pas à l'année de la communication HAL, et donc a été mise à jour. Parmi ces dernières, le rang change pour `r n_distinct(b$core_id)` d'entre elles. 
 
 <br>
 
@@ -488,12 +488,12 @@ Les données finales de cette analyse sont visibles ci-dessous, et disponibles d
 - ***core_title*** : le titre de la conférence, issu des données CORE ;
 - ***Acronym*** : l'acronyme de la conférence, issu des données CORE ;
 - ***Source*** : l'année du rang de la conférence correspondant à l'année de publication de la communication HAL ou l'année la plus récente disponible, issue des données CORE millésimées;
-- ***Rank*** : le rang de la conférence correspondant à l'année de publication de la communication HAL ou l'année la plus récente disponible, issu des données CORE millésimées;
+- ***Rank*** : le rang de la conférence correspondant à l'année de publication de la communication HAL ou l'année la plus récente disponible, issu des données CORE millésimées ;
 - ***Primary FoR*** : l'identifiant du domaine de recherche (*Field of Research*) de la conférence, issu des données CORE **non millésimées** ;
-- ***core_id*** : l'identifiant unique de la conférence, provenant du numéro de page [des données CORE millésimées](http://portal.core.edu.au/conf-ranks/1/) ;
-- ***distance*** : nombre de caractères non communs aux titres de conférence dans les données HAL (*booktitle*) et dans les données CORE (*core_title*), calculé en première partie ;
-- ***part_similarite*** : pourcentage de caractères du titre de conférence HAL se trouvant dans le titre de conférence CORE, calculé en première partie ;
-- ***method*** : méthode ayant permis d'enrichir les données HAL par le référentiel, prend la valeur "*score*" ou "*token*", a été créée en première partie ;
+- ***core_id*** : l'identifiant unique de la conférence, calqué sur le numéro de notice [des données CORE](http://portal.core.edu.au/conf-ranks/1/) ;
+- ***distance*** : nombre de caractères non communs aux intitulés de conférence dans les données HAL (*booktitle*) et dans les données CORE (*core_title*), calculé en première partie ;
+- ***part_similarite*** : pourcentage de caractères de l'intitulé de conférence HAL se trouvant dans l'intitulé de conférence CORE, calculé en première partie ;
+- ***method*** : méthode ayant permis de désambiguïser l'intitulé de la conférence (soit "*score*" soit "*token*"), créée en première partie ;
 - ***nb_conf_matchees*** : nombre de conférences du référentiel CORE ayant matché avec les données HAL, nécessitant alors un tri manuel au regard des intitulés de conférences ainsi que des acronymes.
 
 <br>
