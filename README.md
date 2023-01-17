@@ -1,6 +1,8 @@
 # Nettoyage et enrichissement des données HAL-Inria
 
-## Désambiguïsation des intitulés de conférence et ajout du Rank millésimé
+## Désambiguïsation des intitulés de conférence et ajout du *Rank* millésimé
+
+**Auteur** : Diane Thierry, Datactivist
 
 Les intitulés de conférences renseignés dans les données de l'[archive ouverte HAL](https://hal.science/) lors du dépôt d'une communication ne sont pas toujours proprement renseignés. Une source de désambiguïsation et d'enrichissement des données est fournie par le [référentiel CORE](http://portal.core.edu.au/conf-ranks/).
 
