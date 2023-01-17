@@ -469,7 +469,7 @@ Les données millésimées des `r n_distinct(core_histo$core_id)` conférences d
 - lorsqu'un seul rang est disponible dans les données CORE millésimées, nous le gardons ; 
 - dans tous les autres cas, le rang le plus récent est appliqué.
 
-Ainsi, le champ *'Source'* est mis à jour en fonction de cette règle. Pour `r n_distinct(a$core_id)` communications, la source des données CORE non millésimées ne correspondait pas à l'année de la communication HAL, et donc a été mise à jour. Parmi ces dernières, le rang change pour `r n_distinct(b$core_id)` d'entre elles. 
+Ainsi, le champ *'Source'* est mis à jour en fonction de cette règle, ce qui modifie sa valeur pour `r n_distinct(a$core_id)` communications. Le fait de se référer à un autre millésime change alors la valeur du rang pour `r n_distinct(b$core_id)` d'entre elles.
 
 <br>
 
