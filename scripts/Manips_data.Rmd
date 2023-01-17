@@ -471,6 +471,7 @@ Les données millésimées des `r n_distinct(core_histo$core_id)` conférences d
 - dans tous les autres cas, le rang le plus récent est appliqué (excepté lorsque la source la plus récente est '*ERA*' ; c'est alors la source '*CORE*' qui est privilégiée).
 
 Ainsi, le champ *'Source'* est mis à jour en fonction de cette règle, ce qui modifie sa valeur pour `r n_distinct(a$core_id)` communications. Le fait de se référer à un autre millésime change alors la valeur du rang pour `r n_distinct(b$core_id)` d'entre elles.
+
 <br>
 
 ----
