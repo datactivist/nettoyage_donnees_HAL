@@ -444,7 +444,8 @@ enriched_hal_histo <- enriched_hal_histo %>%
     filter(is_row_delete == 0) %>% 
         # gestion des cas où l'année de publi n'est pas dispo dans l'historique CORE
     mutate(year_millesime = str_extract(source, "(1|2)\\d{3}")) %>% #extraction de l'année depuis la source
-    #filter(grepl("ERA", source) == FALSE) %>% #on retire les 'ERA'
+    mutate(is_era_delete = case_when(n < 1 & grepl(source, "ERA") == TRUE ~ 1, TRUE ~ 0)) %>% 
+    filter(is_era_delete != 1) %>% select(-is_era_delete) %>% #on retire les 'ERA' quand source CORE disponible
     group_by(hal_id, core_id) %>% arrange(desc(year_millesime)) %>% slice(1) #on garde la source la plus récente pour les autres conf
 
 # Mise en forme des données finales
@@ -452,7 +453,7 @@ save_enriched_hal_histo <- enriched_hal_histo #sauvegarde pour statistiques
 enriched_hal_histo <- enriched_hal_histo %>% 
     select("hal_title","year","hal_id","booktitle","core_title","Acronym.y","source","rank","Primary FoR","core_id","distance","part_similarite","method") %>% 
     rename(Acronym = Acronym.y, Source = source, Rank = rank) %>% 
-    group_by(hal_id, booktitle) %>% mutate(nb_conf_matchees = n()) %>% ungroup()
+    group_by(hal_id, booktitle) %>% mutate(nb_conf_matches = n()) %>% ungroup()
 
 # Stats
 a <- save_enriched_hal_histo %>% group_by(core_id) %>% mutate(is_source_diff = case_when(Source != source ~ 1, TRUE ~ 0)) %>% filter(is_source_diff == 1)
@@ -467,10 +468,9 @@ Les données millésimées des `r n_distinct(core_histo$core_id)` conférences d
 - lorsque l'année de la communication correspond à un millésime du référentiel, le rang de ce millésime est appliqué (*ex: pour une publication de 2018 nous appliquons le rang dont la source est 'CORE2018'*) ;
 - lorsque l'année de la communication est 2019 ou 2022, années sans mise à jour du référentiel, nous prenons le rang de l'année précédente (*ex: pour une publication de 2022 nous appliquons le rang dont la source est 'CORE2021'*) ;
 - lorsqu'un seul rang est disponible dans les données CORE millésimées, nous le gardons ; 
-- dans tous les autres cas, le rang le plus récent est appliqué.
+- dans tous les autres cas, le rang le plus récent est appliqué (excepté lorsque la source la plus récente est '*ERA*' ; c'est alors la source '*CORE*' qui est privilégiée).
 
 Ainsi, le champ *'Source'* est mis à jour en fonction de cette règle, ce qui modifie sa valeur pour `r n_distinct(a$core_id)` communications. Le fait de se référer à un autre millésime change alors la valeur du rang pour `r n_distinct(b$core_id)` d'entre elles.
-
 <br>
 
 ----
@@ -494,7 +494,7 @@ Les données finales de cette analyse sont visibles ci-dessous, et disponibles d
 - ***distance*** : nombre de caractères non communs aux intitulés de conférence dans les données HAL (*booktitle*) et dans les données CORE (*core_title*), calculé en première partie ;
 - ***part_similarite*** : pourcentage de caractères de l'intitulé de conférence HAL se trouvant dans l'intitulé de conférence CORE, calculé en première partie ;
 - ***method*** : méthode ayant permis de désambiguïser l'intitulé de la conférence (soit "*score*" soit "*token*"), créée en première partie ;
-- ***nb_conf_matchees*** : nombre de conférences du référentiel CORE ayant matché avec les données HAL, nécessitant alors un tri manuel au regard des intitulés de conférences ainsi que des acronymes.
+- ***nb_conf_matches*** : nombre de conférences du référentiel CORE ayant matché avec les données HAL, nécessitant alors un tri manuel au regard des intitulés de conférences ainsi que des acronymes.
 
 <br>
 
