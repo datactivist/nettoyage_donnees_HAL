@@ -1,0 +1,121 @@
+title,Acronym,Source,Rank,DBLP,hasData?,Primary FoR,Comments,Average Rating,core_id,n
+"IEEE Conference on Information, Decision and Control",IDC,CORE2018,C,none,No,,0,N/A,684,4
+Intelligent Distributed Computing,IDC,CORE2021,Unranked,view,Yes,4606,0,N/A,959,4
+Interaction Design and Children (ACM),IDC,ERA2010,B,none,No,1203,0,N/A,967,4
+"International Conference on Digital Content, Multimedia Technology and its Applications",IDC,CORE2018,C,none,No,806,0,N/A,1138,4
+IASTED International Conference on Intelligent Systems and Control,ISC,CORE2014,C,none,Yes,,0,N/A,647,4
+Industrial Simulation Conference,ISC,CORE2021,C,none,No,4602,0,N/A,930,4
+Information Security Conference,ISC,CORE2021,B,none,Yes,4604,0,N/A,937,4
+ISC High Performance (was International Supercomputing Conference),ISC,CORE2021,C,view,No,4606,0,N/A,1772,4
+European Grid Conference,EGC,CORE2018,B,none,No,,0,N/A,545,3
+French Speaking Conference on the Extraction and Management of Knowledge,EGC,ERA2010,C,none,Yes,801,0,N/A,600,3
+Spanish Meeting on Computational Geometry,EGC,ERA2010,C,none,Yes,802,0,N/A,1998,3
+IEEE International Conference on Computational Cybernetics,ICCC,CORE2018,C,none,No,801,0,N/A,724,3
+International Conference on Chinese Computing,ICCC,CORE2018,C,none,No,899,0,N/A,1062,3
+International Conference on Computational Creativity,ICCC,CORE2021,Unranked,view,Yes,46,0,N/A,1079,3
+International Conference on Electronic Commerce,ICEC,CORE2021,C,none,No,4601,0,N/A,1151,3
+International Conference on Entertainment Computing,ICEC,CORE2021,C,view,No,4607,0,N/A,1167,3
+"World Congress on Cost Engineering, Project Management and Quantity Surveying, AACE American Association of Cost Engineers",ICEC,ERA2010,B,none,No,1202,0,N/A,2203,3
+IEEE/ACIS International Conference on Computer and Information Science,ICIS,CORE2021,C,view,No,46,1,4.0,890,3
+International Conference on Information Systems,ICIS,CORE2018,A*,view,Yes,806,0,N/A,1235,3
+"International Conference on Interaction Sciences: Information Technology, Culture and Human",ICIS,CORE2018,C,none,No,806,0,N/A,1263,3
+Athens Colloquium on Algorithms and Complexity,ACAC,ERA2010,C,none,Yes,802,0,N/A,213,2
+Australasian Computer Architecture Conference,ACAC,CORE2018,Australasian,none,Yes,803,0,N/A,220,2
+"ACM International Conference on Advances in Computer Entertainment (merged with DIMEA, Digital Interactive Media in Entertainment and Arts, in 2009)",ACE,CORE2021,B,none,No,4607,0,N/A,27,2
+Australasian Computing Education Conference (ACE),ACE,CORE2021,Australasian B,view,Yes,4608,1,4.0,225,2
+Annual Computer Security Applications Conference,ACSAC,CORE2021,National: usa,view,No,4604,4,4.0,124,2
+Australasian Computer Systems Architecture Conference (now Asia-Pacific Computer Systems Architecture Conference),ACSAC,CORE2018,Australasian,none,Yes,803,0,N/A,223,2
+Australasian Joint Conference on Artificial Intelligence,AI,CORE2021,Australasian B,view,Yes,4602,0,N/A,240,2
+IASTED International Conference on Applied Informatics,AI,CORE2014,C,none,Yes,,0,N/A,642,2
+Advances in Intelligent Systems,AIS,CORE2018,C,none,No,801,0,N/A,101,2
+Ambient Information Systems,AIS,ERA2010,B,none,No,1203,0,N/A,115,2
+Asian-Pacific Conference on Computational Mechanics,APCOM,ERA2010,A,none,No,905,0,N/A,202,2
+Computer Applications in The Mineral Industries,APCOM,ERA2010,A,none,No,914,0,N/A,355,2
+IEEE/IFAC Computer Aided Control System Design,CACSD,ERA2010,B,none,No,1006,0,N/A,895,2
+IEEE/IFAC Joint Symposium on Intelligent Control,CACSD,CORE2018,B,none,No,,0,N/A,896,2
+ACM Creativity and Cognition,CC,ERA2010,A,none,No,1203,0,N/A,24,2
+International Conference on Compiler Construction,CC,CORE2021,B,view,Yes,4606,0,N/A,1071,2
+IEEE International Conference on Control Applications,CCA,CORE2018,B,none,No,1006,0,N/A,730,2
+International Conference on Computability and Complexity in Analysis,CCA,CORE2021,C,none,No,4613,0,N/A,1077,2
+IEEE Conference on Electronic Commerce Technology (merger of CEC and EEE),CEC,CORE2014,C,none,No,806,0,N/A,682,2
+IEEE Congress on Evolutionary Computation,CEC,CORE2021,B,view,Yes,4602,4,4.5,693,2
+IEEE International Conference on Cybernetics and Intelligent Systems,CIS,CORE2021,C,none,No,4602,0,N/A,732,2
+International Conference on Computational Intelligence and Security,CIS,CORE2021,National: China,view,No,4604,0,N/A,1082,2
+Computational Intelligence in Security for Information Systems,CISIS,CORE2021,National: Spain,view,No,4604,0,N/A,348,2
+"International Conference on Complex, Intelligent and Software Intensive Systems",CISIS,CORE2021,C,view,No,4606,1,N/A,1074,2
+Design Automation Conf,DAC,CORE2018,A,view,No,,2,5.0,448,2
+Digital Arts and Culture,DAC,CORE2018,C,none,No,806,0,N/A,459,2
+Data Compression Conference,DCC,CORE2021,B,view,Yes,4605,0,N/A,438,2
+Design Computing and Cognition,DCC,ERA2010,A,none,No,1201,0,N/A,449,2
+Australian Pattern Recognition Society Conference,DICTA,CORE2017,Australasian,none,Yes,,0,N/A,285,2
+Digital Image Computing Techniques and Applications,DICTA,CORE2021,Australasian B,view,No,4603,0,N/A,462,2
+IEEE/IFIP International Conference on Dependable Systems and Networks,DSN,CORE2021,A,view,Yes,4606,1,5.0,897,2
+Workshop on Assurance Cases for Security,DSN,CORE2018,C,none,No,803,0,N/A,2141,2
+European Computing Conference,ECC,CORE2018,C,none,No,8,0,N/A,512,2
+Workshop on Elliptic Curve Cryptography,ECC,CORE2018,C,none,No,804,0,N/A,2161,2
+ECRYPT Workshop on Cryptographic Hash Functions,ECRYPT,CORE2018,C,none,No,804,0,N/A,481,2
+ECRYPT Workshop on Tools for Cryptanalysis,ECRYPT,CORE2018,C,none,No,804,0,N/A,482,2
+Educational Data Mining,EDM,CORE2021,B,view,No,4601,2,4.5,484,2
+Symposium on Discrete Mathematics,EDM,CORE2018,C,none,No,802,0,N/A,2029,2
+Graphics Interface,GI,CORE2021,B,view,No,4607,0,N/A,622,2
+IEEE Global Internet Symposium,GI,CORE2021,C,none,No,4606,0,N/A,701,2
+Human-Agent Interaction,HAI,CORE2021,B,view,Yes,4608,0,N/A,636,2
+"International Workshop on Human Aspects in Ambient Intelligence: Agent Technology, Human-Oriented Knowledge and Applications",HAI,CORE2018,C,none,No,801,0,N/A,1707,2
+IEEE Industry Applications Society Annual Conference,IAS,CORE2021,National: USA,view,No,4601,0,N/A,704,2
+International Symposium on Information Assurance and Security,IAS,CORE2021,C,none,No,4604,0,N/A,1596,2
+International Conference on Adaptive and Natural Computing Algorithms,ICANNGA,CORE2018,C,none,No,801,0,N/A,1011,2
+International Conference on Artificial Neural Networks and Genetic Algorithms,ICANNGA,CORE2018,C,none,No,,0,N/A,1050,2
+IEEE International Conference on Cognitive Informatics,ICCI,CORE2021,C,view,No,4602,0,N/A,722,2
+International Conference on Computing and Information,ICCI,CORE2018,B,none,No,,0,N/A,1109,2
+International Conference on Computational Science,ICCS,CORE2021,A,view,Yes,4601,3,5.0,1089,2
+International Conference on Conceptual Structures,ICCS,CORE2021,B,view,No,4613,0,N/A,1112,2
+International Conference on Communication Systems and Applications,ICCSA,CORE2021,C,none,No,4606,0,N/A,1069,2
+International Conference on Computational Science and its Applications,ICCSA,CORE2021,C,view,No,46,0,N/A,1090,2
+International Conference on Computational Engineering Science,ICES,CORE2018,C,none,No,802,1,N/A,1080,2
+International Conference on Environmental Systems,ICES,ERA2010,A,none,No,1202,0,N/A,1168,2
+International Conference on Information and Communications Security,ICICS,CORE2021,B,view,No,4604,2,N/A,1224,2
+"International Conference on Information, Communications and Signal Processing",ICICS,CORE2018,B,none,No,806,0,N/A,1247,2
+International Conference on Multimedia,ICMR,CORE2014,B,none,Yes,803,0,N/A,1317,2
+International Conference on Multimedia Retrieval (previously MIR),ICMR,CORE2021,B,view,Yes,4603,0,N/A,1319,2
+"Canadian Society for Civil Engineering, International Construction Specialty Conference",ICSC,ERA2010,C,none,No,905,0,N/A,326,2
+International Computer Science Conference,ICSC,CORE2018,B,none,No,8,0,N/A,987,2
+IEEE International Conference on Signal Processing and Communication,ICSPC,ERA2010,C,none,No,1005,0,N/A,777,2
+International Conference on Security in Pervasive Computing,ICSPC,CORE2018,A,none,No,806,0,N/A,1381,2
+International Conference on Computer Vision Systems,ICVS,CORE2021,C,view,No,4603,0,N/A,1101,2
+International Conference on Virtual Storytelling (merged into ICIDS in 2008),ICVS,ERA2010,C,none,No,899,1,N/A,1454,2
+Interactive Entertainment,IE,CORE2021,Australasian C,none,No,4607,0,N/A,968,2
+The International Conference on Intelligent Environments,IE,CORE2021,B,view,Yes,4602,0,N/A,2060,2
+International Conference on Applications of Prolog (no information after 2013),INAP,CORE2014,C,none,No,,0,N/A,1039,2
+International Conference on Declarative Programming and Knowledge Management (no information after 2013),INAP,CORE2014,C,none,No,802,0,N/A,1133,2
+Annual Conference of the International Speech Communication Association (was Eurospeech),Interspeech,CORE2014,A,none,No,801,0,N/A,129,2
+Interspeech (combined EuroSpeech and ICSLP in 2000),Interspeech,CORE2021,A,view,No,4602,0,N/A,1770,2
+Infrastructure and Environment (International Postgraduate Conference),IPC,ERA2010,B,none,No,1202,0,N/A,948,2
+International Conference on Intelligent Pervasive Computing,IPC,CORE2018,C,none,No,805,0,N/A,1254,2
+Automation and Robotics International Symposium,ISARC,ERA2010,B,none,No,10,0,N/A,301,2
+International Symposium on Automation and Robotics in Construction,ISARC,CORE2021,C,none,No,4602,0,N/A,1563,2
+Australian Information Security Management Conference,ISM,CORE2018,Australasian,none,Yes,804,0,N/A,276,2
+IEEE International Symposium on Multimedia,ISM,CORE2021,C,view,No,4603,0,N/A,807,2
+International Symposium on Mathematical Morphology,ISMM,CORE2018,B,none,No,801,0,N/A,1607,2
+International Symposium on Memory Management,ISMM,CORE2021,C,view,Yes,4606,0,N/A,1608,2
+IEEE International Symposium on Wearable Computers,ISWC,CORE2021,Journal Published,none,Yes,4608,0,N/A,816,2
+International Semantic Web Conference,ISWC,CORE2021,A,view,Yes,4605,5,4.6,1542,2
+IEEE International Test Conference,ITC,CORE2018,B,none,No,1005,0,N/A,818,2
+International Teletraffic Congress,ITC,CORE2021,Unranked,view,Yes,4606,0,N/A,1648,2
+ACM Symposium on Applied Computing,SAC,CORE2021,Multiconference,view,No,4601,0,N/A,66,2
+Selected Areas in Cryptography,SAC,CORE2021,B,view,Yes,4604,0,N/A,1962,2
+"International Conference for High Performance Computing, Networking, Storage and Analysis (was Supercomputing Conference)",SC,CORE2021,A,view,No,4606,0,N/A,998,2
+International Conference on Software Composition,SC,CORE2018,B,none,No,803,0,N/A,1394,2
+IEEE International Conference on Services Computing,SCC,CORE2021,B,view,Yes,4606,0,N/A,776,2
+Southern Conference on Computing,SCC,ERA2010,C,none,Yes,802,0,N/A,1996,2
+IASTED International Conference on Software Engineering,SE,CORE2014,C,none,Yes,,0,N/A,656,2
+International IEEE Workshop on Software Evolvability,SE,CORE2018,C,none,No,803,0,N/A,1507,2
+IASTED International Conference on Software Engineering and Applications,SEA,CORE2014,C,none,Yes,,0,N/A,657,2
+International Symposium on Experimental Algorithms,SEA,CORE2021,B,view,No,4613,0,N/A,1585,2
+ACM SIGCHI_NZ Conference on Human-Computer Interaction,SIGCHI-NZ,CORE2018,Australasian,none,No,806,0,N/A,47,2
+International NZ Conference on Computer-Human Interaction,SIGCHI-NZ,CORE2017,Australasian,none,No,,0,N/A,1532,2
+International Visualization in Transportation Symposium,TRB,CORE2021,National: USA,none,No,4608,0,N/A,1652,2
+Transportation Research Board (USA) Annual Meeting,TRB,ERA2010,A,none,No,1205,0,N/A,2080,2
+International Workshop on Coding and Cryptography,WCC,CORE2020,B,view,No,4604,0,N/A,1673,2
+World Computer Congress,WCC,CORE2018,C,none,No,8,0,N/A,2195,2
+Conference on Agile Software Development,XP,CORE2021,B,view,No,4612,0,N/A,378,2
+"International Conference on Agile Software Development (chnaged in 2010, was International Conference on extreme Programming and Flexible Processes in Software Engineering)",XP,CORE2018,B,none,No,803,0,N/A,1031,2
